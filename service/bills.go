@@ -93,7 +93,8 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 			DiscountValue: fint(f, "bill_discount_value"), ServiceChargeBP: fint(f, "service_charge_bp"), GrossPaise: fint(f, "gross_paise"), DiscountPaise: fint(f, "discount_paise"),
 			TaxablePaise: fint(f, "taxable_paise"), CGSTPaise: fint(f, "cgst_paise"), SGSTPaise: fint(f, "sgst_paise"), NonGSTPaise: fint(f, "non_gst_subtotal_paise"),
 			ServiceCharge: fint(f, "service_charge_paise"), PackingPaise: fint(f, "packing_charge_paise"), RoundOffPaise: fint(f, "round_off_paise"),
-			TotalPaise: fint(f, "total_paise"), BookTotalPaise: fint(f, "book_total_paise"), LineIDs: lineIDs, OpOrigin: ac.op.Origin, OpSeq: ac.op.Seq}}
+			TotalPaise: fint(f, "total_paise"), BookTotalPaise: fint(f, "book_total_paise"), LineIDs: lineIDs, OpOrigin: ac.op.Origin, OpSeq: ac.op.Seq,
+			RebillGroupID: fstr(f, "rebill_group_id")}}
 		if rec.Calc.SeriesCode == "" {
 			rec.Calc.SeriesCode = code
 		}
@@ -111,6 +112,14 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 			return err
 		}
 		applyPayments(&rec.Detail, pays)
+		// credit notes that arrived before the bill
+		earlier, _, err := loadAll[CreditRec](ctx, ac.tx, repository.Query{Kind: repository.KindCreditNote, K1: m.ID})
+		if err != nil {
+			return err
+		}
+		for _, n := range earlier {
+			addTo(&rec.Detail.Credited, n.Note.Total.AmountPaise)
+		}
 		if rec.Detail.Verification, err = ac.verifyBill(ctx, rec); err != nil {
 			return err
 		}
@@ -130,6 +139,9 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 			return err
 		}
 		if err := ac.checkPaymentsExceed(ctx, rec.Detail); err != nil { // payments that came before the bill
+			return err
+		}
+		if err := ac.checkCreditCap(ctx, m.ID); err != nil { // notes that came before the bill
 			return err
 		}
 	}
@@ -159,7 +171,7 @@ func applyPayments(d *gen.BillDetail, pays []gen.Payment) {
 func (ac *applyCtx) afterBill(ctx context.Context, rec BillRec, day gen.BusinessDay, late bool) error {
 	d := rec.Detail
 	date, inv := d.BusinessDate.String(), d.InvoiceDate.String()
-	if err := ac.register(ctx, rec.Calc.SeriesCode, rec.Calc.FinancialYear, d.Number, string(d.DocType), string(d.SourceKind), d.DeviceId); err != nil {
+	if err := ac.register(ctx, rec.Calc.SeriesCode, rec.Calc.FinancialYear, d.Number, string(d.DocType), string(d.SourceKind), d.DeviceId, "bill", d.Id, inv); err != nil {
 		return err
 	}
 	// aggregates
@@ -193,7 +205,7 @@ func (ac *applyCtx) afterBill(ctx context.Context, rec BillRec, day gen.Business
 	}
 	for _, l := range d.Lines {
 		if l.Comp {
-			if err := ac.discountRow(ctx, "comp", d.Id+"|"+strconv.Itoa(l.LineNo), d.Number, NoReason, l.UnitPrice.AmountPaise*l.QtyMilli/1000, date); err != nil {
+			if err := ac.discountRow(ctx, "comp", d.Id+"|"+strconv.Itoa(l.LineNo), d.Number, NoReason, compValue(l), date); err != nil {
 				return err
 			}
 		}
@@ -238,10 +250,8 @@ func (ac *applyCtx) afterBill(ctx context.Context, rec BillRec, day gen.Business
 			return err
 		}
 	}
-	if late {
-		if err := ac.addLate(ctx, day, contrib, []gen.SeriesRange{{SeriesCode: rec.Calc.SeriesCode, DocType: gen.SeriesRangeDocType(d.DocType), FirstNumber: d.Number, LastNumber: d.Number, Count: 1}}, "bill", d.Id); err != nil {
-			return err
-		}
+	if err := ac.settle(ctx, day, late, "bill", d.Id, d.Number, date, contrib, []gen.SeriesRange{{SeriesCode: rec.Calc.SeriesCode, DocType: gen.SeriesRangeDocType(d.DocType), FirstNumber: d.Number, LastNumber: d.Number, Count: 1}}); err != nil {
+		return err
 	}
 	if err := ac.s.publish(ctx, ac.tx, ac.outlet, "billing.bill.recorded", d.Id, ac.op.Actor, map[string]any{
 		"bill_id": d.Id, "outlet_id": ac.outlet, "doc_type": d.DocType, "source_kind": d.SourceKind, "business_date": date, "invoice_date": inv,
@@ -251,14 +261,9 @@ func (ac *applyCtx) afterBill(ctx context.Context, rec BillRec, day gen.Business
 	return ac.checkPaymentsExceed(ctx, d)
 }
 
-// recordedVerification maps the stored status to the event enum (pending is not an event value; it is reported as
-// verified-pending later when the rule set arrives, and the event says manual_entry or the flagged status).
-func recordedVerification(s gen.VerificationStatus) string {
-	if s == gen.VerificationStatusPending {
-		return "verified"
-	}
-	return string(s)
-}
+// recordedVerification is the stored status as the event states it: a document whose rule set has not arrived is
+// "pending", never "verified" (M4). The flagged event follows when the status becomes final and is not verified.
+func recordedVerification(s gen.VerificationStatus) string { return string(s) }
 
 // flag raises the exception and the event of a document that did not verify.
 func (ac *applyCtx) flag(ctx context.Context, kind, id, outlet string, v gen.Verification, date string) error {
@@ -311,9 +316,8 @@ func billContribution(rec BillRec) gen.DayTotals {
 	t.Gross, t.Discounts, t.Net = money(c.GrossPaise), money(c.DiscountPaise), money(c.GrossPaise-c.DiscountPaise)
 	t.ServiceCharge, t.Cgst, t.Sgst, t.NonGst = money(c.ServiceCharge), money(c.CGSTPaise), money(c.SGSTPaise), money(c.NonGSTPaise)
 	t.RoundOff, t.Total, t.BillCount = money(c.RoundOffPaise), money(c.TotalPaise), 1
-	for _, p := range rec.Detail.Payments {
-		t = addTotals(t, tenderTotals(p))
-	}
+	// The tenders are not the bill's: each payment adds its own tender when it is projected, whichever of the two arrived
+	// first (CR-H1).
 	return t
 }
 
@@ -357,31 +361,29 @@ func (ac *applyCtx) payments(ctx context.Context) error {
 			continue
 		}
 		date := p.BusinessDate.String()
-		day, late, err := ac.lateDay(ctx, date, "")
+		// the payment is late with its bill: a numbered bill of the same op, or the one billing already holds, names the series
+		billNumber := ""
+		for _, b := range ac.g["bill"] {
+			if b.ID == p.BillId {
+				billNumber = fstr(b.F, "number")
+			}
+		}
+		if bd, err := ac.tx.GetDoc(ctx, repository.KindBill, p.BillId); billNumber == "" && err == nil {
+			billNumber = bd.K1
+		}
+		day, late, err := ac.lateDay(ctx, date, billNumber)
 		if err != nil {
 			return err
 		}
 		if err := ac.aggTender(ctx, date, p.Tender, deref(p.TenderName), 1, p.Amount.AmountPaise, 0); err != nil {
 			return err
 		}
-		// A payment taken with its bill in this op is already part of the bill's contribution to the day; a
-		// separate payment.record op adds the tender to the day totals here.
-		inBill := false
-		for _, b := range ac.g["bill"] {
-			if b.ID == p.BillId {
-				inBill = true
-			}
-		}
 		contrib := tenderTotals(p)
-		if !inBill {
-			if err := ac.aggDay(ctx, date, contrib); err != nil {
-				return err
-			}
+		if err := ac.aggDay(ctx, date, contrib); err != nil {
+			return err
 		}
-		if late && !inBill {
-			if err := ac.addLate(ctx, day, contrib, nil, "payment", p.Id); err != nil {
-				return err
-			}
+		if err := ac.settle(ctx, day, late, "payment", p.Id, billNumber, date, contrib, nil); err != nil {
+			return err
 		}
 		b, err := ac.tx.GetDoc(ctx, repository.KindBill, p.BillId)
 		if err == repository.ErrNotFound {
@@ -482,10 +484,8 @@ func (ac *applyCtx) refunds(ctx context.Context) error {
 		if err := ac.discountRow(ctx, "refund", r.Id, "", r.ReasonCodeId, r.Amount.AmountPaise, date); err != nil {
 			return err
 		}
-		if late {
-			if err := ac.addLate(ctx, day, contrib, nil, "refund", r.Id); err != nil {
-				return err
-			}
+		if err := ac.settle(ctx, day, late, "refund", r.Id, "", date, contrib, nil); err != nil {
+			return err
 		}
 		if b, err := load[BillRec](ctx, ac.tx, repository.KindBill, r.BillId); err == nil {
 			net := b.Detail.Paid.AmountPaise
@@ -585,7 +585,7 @@ func (ac *applyCtx) creditNotes(ctx context.Context) error {
 func (ac *applyCtx) afterCredit(ctx context.Context, rec CreditRec, day gen.BusinessDay, late bool) error {
 	n := rec.Note
 	date, inv := n.BusinessDate.String(), n.InvoiceDate.String()
-	if err := ac.register(ctx, rec.Calc.SeriesCode, rec.Calc.FinancialYear, n.Number, "credit_note", "device", n.DeviceId); err != nil {
+	if err := ac.register(ctx, rec.Calc.SeriesCode, rec.Calc.FinancialYear, n.Number, "credit_note", "device", n.DeviceId, "credit_note", n.Id, inv); err != nil {
 		return err
 	}
 	contrib := emptyTotals()
@@ -615,10 +615,11 @@ func (ac *applyCtx) afterCredit(ctx context.Context, rec CreditRec, day gen.Busi
 	if err := ac.flag(ctx, "credit_note", n.Id, n.OutletId, n.Verification, date); err != nil {
 		return err
 	}
-	if late {
-		if err := ac.addLate(ctx, day, contrib, []gen.SeriesRange{{SeriesCode: rec.Calc.SeriesCode, DocType: "credit_note", FirstNumber: n.Number, LastNumber: n.Number, Count: 1}}, "credit_note", n.Id); err != nil {
-			return err
-		}
+	if err := ac.settle(ctx, day, late, "credit_note", n.Id, n.Number, date, contrib, []gen.SeriesRange{{SeriesCode: rec.Calc.SeriesCode, DocType: "credit_note", FirstNumber: n.Number, LastNumber: n.Number, Count: 1}}); err != nil {
+		return err
+	}
+	if err := ac.checkCreditCap(ctx, n.BillId); err != nil {
+		return err
 	}
 	return ac.s.publish(ctx, ac.tx, ac.outlet, "billing.credit_note.recorded", n.Id, ac.op.Actor, map[string]any{
 		"credit_note_id": n.Id, "bill_id": n.BillId, "outlet_id": ac.outlet, "business_date": date, "invoice_date": inv,

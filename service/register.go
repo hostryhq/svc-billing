@@ -58,7 +58,7 @@ func count(r [][2]int64) int {
 }
 
 // register records a document number in the register of its series and detects gaps.
-func (ac *applyCtx) register(ctx context.Context, code, fy, number, docType, sourceKind, device string) error {
+func (ac *applyCtx) register(ctx context.Context, code, fy, number, docType, sourceKind, device, docKind, docID, invoiceDate string) error {
 	c, f, running, ok := splitNumber(number)
 	if !ok {
 		return nil // a number that is not <code>/<FY>/<running> is the gateway's to quarantine, not the register's
@@ -69,9 +69,9 @@ func (ac *applyCtx) register(ctx context.Context, code, fy, number, docType, sou
 	if fy == "" {
 		fy = f
 	}
-	reg := NoRegistration
-	if o, err := load[OutletRec](ctx, ac.tx, repository.KindOutlet, ac.outlet); err == nil && o.RegistrationID != "" {
-		reg = o.RegistrationID
+	reg, err := ac.registrationFor(ctx, code, device, invoiceDate)
+	if err != nil {
+		return err
 	}
 	kind := gen.RegisterSeriesKind("device")
 	gapKind := "device"
@@ -82,7 +82,7 @@ func (ac *applyCtx) register(ctx context.Context, code, fy, number, docType, sou
 	now := tstamp.Of(ac.s.clock.Now())
 	var rec SeriesRec
 	var h [][2]int64
-	err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindSeries, ID: id, Sort: code + "|" + fy, K1: string(kind)}, func(r *SeriesRec) {
+	err = modify(ctx, ac.tx, repository.Doc{Kind: repository.KindSeries, ID: id, Sort: code + "|" + fy, K1: string(kind)}, func(r *SeriesRec) {
 		if r.Series.SeriesCode == "" {
 			r.Series = gen.RegisterSeries{TaxRegistrationId: reg, SeriesCode: code, Kind: kind, DocType: gen.RegisterSeriesDocType(docType), FinancialYear: fy, State: "active"}
 			if kind == "device" {
@@ -109,10 +109,54 @@ func (ac *applyCtx) register(ctx context.Context, code, fy, number, docType, sou
 	if err != nil {
 		return err
 	}
+	if err := ac.claimNumber(ctx, id, running, docKind, docID, number); err != nil {
+		return err
+	}
 	if err := ac.syncGaps(ctx, rec, h, gapKind, ac.op.Actor); err != nil {
 		return err
 	}
 	return ac.linkAndReconcile(ctx, reg, code)
+}
+
+// registrationFor is the tax registration a document belongs to. The series says it: tenancy told billing which
+// registration issued the series of this code to this outlet (tenancy.series.issued), and a series never changes
+// registration. When billing has not heard of the series, the registration the outlet had on the invoice date decides, so
+// a bill an offline device finalised under the old GSTIN is never registered under the new one (M3).
+func (ac *applyCtx) registrationFor(ctx context.Context, code, device, invoiceDate string) (string, error) {
+	issued, _, err := loadAll[SeriesIssued](ctx, ac.tx, repository.Query{Kind: KindSeriesIssued, Outlets: []string{ac.outlet}})
+	if err != nil {
+		return "", err
+	}
+	for _, si := range issued {
+		if si.Code == code && si.RegistrationID != "" && (si.DeviceID == "" || si.DeviceID == device) {
+			return si.RegistrationID, nil
+		}
+	}
+	if o, err := load[OutletRec](ctx, ac.tx, repository.KindOutlet, ac.outlet); err == nil {
+		if r := o.At(invoiceDate).RegistrationID; r != "" {
+			return r, nil
+		}
+	}
+	return NoRegistration, nil
+}
+
+// claimNumber keeps the first document that carried a legal number. The same series, financial year and number under
+// another document id is a defect nobody may leave silent (a restored device, a re-activated device reusing its series, a
+// client bug): it is flagged as duplicate_number on the later document, and the register keeps one entry (CR-H5).
+func (ac *applyCtx) claimNumber(ctx context.Context, seriesID string, running int64, docKind, docID, number string) error {
+	cid := uuid5("number_claim", seriesID+"|"+itoa(int(running)))
+	created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindNumberClaim, ID: cid, Outlet: ac.outlet, K1: docID, K2: docKind, Body: marshalDoc(map[string]string{"doc_id": docID, "number": number})})
+	if err != nil || created {
+		return err
+	}
+	first, err := ac.tx.GetDoc(ctx, repository.KindNumberClaim, cid)
+	if err != nil {
+		return err
+	}
+	if first.K1 == docID {
+		return nil
+	}
+	return ac.exception(ctx, "duplicate_number", gen.High, docKind, docID, "", map[string]any{"number": number, "first_doc_id": first.K1})
 }
 
 // syncGaps makes the gap documents of a series equal the current holes: a hole that is new raises the alert, a hole

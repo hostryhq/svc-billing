@@ -100,7 +100,7 @@ func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
 		return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
 	}
 	for _, step := range []func(context.Context) error{
-		ac.config, ac.ruleSets, ac.dayOpen, ac.shifts, ac.bills, ac.creditNotes, ac.payments, ac.refunds, ac.internal, ac.dayClose,
+		ac.config, ac.ruleSets, ac.dayOpen, ac.shifts, ac.bills, ac.creditNotes, ac.payments, ac.refunds, ac.allowances, ac.internal, ac.dayClose,
 	} {
 		if err := step(ctx); err != nil {
 			return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
@@ -110,6 +110,15 @@ func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
 }
 
 // ---- lateness ----
+
+// opRef names the op a projected document came from: who issued it, its place in the origin's log and its instant.
+type opRef struct {
+	Origin string
+	Seq    int64
+	At     time.Time
+}
+
+func (ac *applyCtx) ref() opRef { return opRef{Origin: ac.op.Origin, Seq: ac.op.Seq, At: ac.op.At} }
 
 // lateDay reports whether a document of this op with the business date falls on a day that was closed with a cutoff
 // that did not cover it (A1.1 item 5), and returns that day.
@@ -125,50 +134,124 @@ func (ac *applyCtx) lateDay(ctx context.Context, date, number string) (gen.Busin
 	if d, err = unmarshalDoc[gen.BusinessDay](doc); err != nil {
 		return d, false, err
 	}
+	return d, isLate(d, ac.ref(), number), nil
+}
+
+// isLate decides whether a document of the op r is outside the Z of the closed day d. The Z is exactly the documents its
+// version vector names (A1.1 item 4): when the close carries a vector, that alone decides, and no device clock is read,
+// because the origin's clock and the closing device's clock are not comparable (CR-H4). Only a close with no vector falls
+// back on the cutoff instant, then on the series ranges the Z printed (F22). A day that is open, or closed with no
+// cutoff at all, covers everything.
+func isLate(d gen.BusinessDay, r opRef, number string) bool {
 	if d.Status != gen.BusinessDayStatusClosed || d.Close == nil {
-		return d, false, nil
+		return false
 	}
-	// cutoff_at is the instant the day was closed; a document finalised after it (at of its op) is late. Compared as
-	// instants (protocol-v1 "Day close cutoff"). `cutoff` is a version vector and never a time; the older readings
-	// (a timestamp in cutoff, a vector compared by seq) apply only to a close stored without cutoff_at.
+	var cut map[string]int64
+	if json.Unmarshal([]byte(d.Close.Cutoff), &cut) == nil && cut != nil {
+		return r.Seq > cut[r.Origin]
+	}
 	if !d.Close.CutoffAt.IsZero() {
-		if ac.op.At.After(d.Close.CutoffAt.Time) {
-			return d, true, nil
-		}
-		// Finalised before the close but not held by the closing device (a partitioned counter): the printed Z does not
-		// cover it, so it arrives in a revision. `cutoff` says what the Z covers (F22).
-		var cut map[string]int64
-		if json.Unmarshal([]byte(d.Close.Cutoff), &cut) == nil && cut != nil {
-			return d, ac.op.Seq > cut[ac.op.Origin], nil
+		if r.At.After(d.Close.CutoffAt.Time) {
+			return true
 		}
 		// No usable vector (a client that sends a time in `cutoff`): the Z's own series ranges say what it printed. A numbered
 		// document of a series the Z does not list, or above its last number, was not in it (F22).
-		return d, !zCovers(d.Close.SeriesRanges, number), nil
+		return !zCovers(d.Close.SeriesRanges, number)
 	}
 	if at, err := time.Parse(time.RFC3339Nano, d.Close.Cutoff); err == nil {
-		return d, ac.op.At.After(at), nil
+		return r.At.After(at)
 	}
-	var cut map[string]int64
-	if json.Unmarshal([]byte(d.Close.Cutoff), &cut) != nil {
-		return d, false, nil
+	return false
+}
+
+// Fact is the stored account of one projected document's contribution to its day: what it added, which op it came from
+// and whether it was counted as late. The close of a day re-examines the facts already stored, so whether a document is
+// late never depends on whether it or the close reached billing first (CR-H3, A2.1 item 5).
+type Fact struct {
+	Kind    string            `json:"kind"`
+	Subject string            `json:"subject"`
+	Origin  string            `json:"origin"`
+	Seq     int64             `json:"seq"`
+	At      time.Time         `json:"at"`
+	Number  string            `json:"number,omitempty"`
+	Totals  gen.DayTotals     `json:"totals"`
+	Ranges  []gen.SeriesRange `json:"ranges,omitempty"`
+	Counted bool              `json:"counted"`
+}
+
+func factID(kind, subject string) string { return uuid5("fact", kind+"|"+subject) }
+
+// settle stores the fact of a document and, when it is late, counts it in the origin's pending revision.
+func (ac *applyCtx) settle(ctx context.Context, day gen.BusinessDay, late bool, kind, subject, number, date string, contrib gen.DayTotals, ranges []gen.SeriesRange) error {
+	r := ac.ref()
+	f := Fact{Kind: kind, Subject: subject, Origin: r.Origin, Seq: r.Seq, At: r.At, Number: number, Totals: contrib, Ranges: ranges, Counted: late}
+	if _, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindFact, ID: factID(kind, subject), Outlet: ac.outlet, Date: date, K1: kind, Body: marshalDoc(f)}); err != nil {
+		return err
 	}
-	return d, ac.op.Seq > cut[ac.op.Origin], nil
+	if !late {
+		return nil
+	}
+	return ac.addLate(ctx, day, contrib, ranges, kind, subject, r)
+}
+
+// reexamine re-evaluates the stored facts of a day against the close that was just applied (or swapped in): a document
+// that reached billing before the close and is outside the Z is late now, and joins its origin's revision.
+func (ac *applyCtx) reexamine(ctx context.Context, date string) error {
+	facts, docs, err := loadAll[Fact](ctx, ac.tx, repository.Query{Kind: repository.KindFact, Outlets: []string{ac.outlet}, DateFrom: date, DateTo: date})
+	if err != nil {
+		return err
+	}
+	for i, f := range facts {
+		if f.Counted {
+			continue
+		}
+		day, err := ac.getOrNewDay(ctx, date)
+		if err != nil {
+			return err
+		}
+		r := opRef{Origin: f.Origin, Seq: f.Seq, At: f.At}
+		if !isLate(day, r, f.Number) {
+			continue
+		}
+		if err := ac.addLate(ctx, day, f.Totals, f.Ranges, f.Kind, f.Subject, r); err != nil {
+			return err
+		}
+		f.Counted = true
+		docs[i].Body = marshalDoc(f)
+		if err := ac.tx.SaveDoc(ctx, docs[i]); err != nil {
+			return err
+		}
+		if f.Kind == "bill" {
+			if b, err := ac.tx.GetDoc(ctx, repository.KindBill, f.Subject); err == nil {
+				rec, err := unmarshalDoc[BillRec](b)
+				if err != nil {
+					return err
+				}
+				rec.Detail.Late = true
+				b.Body = marshalDoc(rec)
+				if err := ac.tx.SaveDoc(ctx, b); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // addLate adds a late document's contribution to the origin's pending revision batch and counts it on the day.
-func (ac *applyCtx) addLate(ctx context.Context, day gen.BusinessDay, contrib gen.DayTotals, ranges []gen.SeriesRange, kind, subject string) error {
-	id := day.Id + "|" + ac.op.Origin
+func (ac *applyCtx) addLate(ctx context.Context, day gen.BusinessDay, contrib gen.DayTotals, ranges []gen.SeriesRange, kind, subject string, r opRef) error {
+	id := day.Id + "|" + r.Origin
 	now := nowUTC(ac.s)
-	if err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindLatePending, ID: id, Outlet: ac.outlet, Date: day.BusinessDate.String(), K1: day.Id, K2: ac.op.Origin},
+	if err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindLatePending, ID: id, Outlet: ac.outlet, Date: day.BusinessDate.String(), K1: day.Id, K2: r.Origin},
 		func(p *LatePending) {
 			if p.DayID == "" {
-				p.DayID, p.Origin, p.Cause, p.FromSeq, p.Totals = day.Id, ac.op.Origin, "late_device", ac.op.Seq, emptyTotals()
+				p.DayID, p.Origin, p.Cause, p.FromSeq, p.Totals = day.Id, r.Origin, "late_device", r.Seq, emptyTotals()
 			}
-			if ac.op.Seq > p.ToSeq {
-				p.ToSeq = ac.op.Seq
+			if r.Seq > p.ToSeq {
+				p.ToSeq = r.Seq
 			}
-			if ac.op.Seq < p.FromSeq {
-				p.FromSeq = ac.op.Seq
+			if r.Seq < p.FromSeq {
+				p.FromSeq = r.Seq
 			}
 			p.LastAt = now.Format(tstamp.Layout)
 			p.Totals = addTotals(p.Totals, contrib)
@@ -177,10 +260,15 @@ func (ac *applyCtx) addLate(ctx context.Context, day gen.BusinessDay, contrib ge
 		return err
 	}
 	if err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindBusinessDay, ID: day.Id, Outlet: ac.outlet, Date: day.BusinessDate.String(), Sort: day.BusinessDate.String()},
-		func(d *gen.BusinessDay) { *d = day; d.LateDocumentCount++ }); err != nil {
+		func(d *gen.BusinessDay) {
+			if d.Id == "" {
+				*d = day
+			}
+			d.LateDocumentCount++
+		}); err != nil {
 		return err
 	}
-	return ac.exception(ctx, "late_document", gen.Info, kind, subject, day.BusinessDate.String(), map[string]any{"revision_origin": ac.op.Origin})
+	return ac.exception(ctx, "late_document", gen.Info, kind, subject, day.BusinessDate.String(), map[string]any{"revision_origin": r.Origin})
 }
 
 // ---- exceptions ----

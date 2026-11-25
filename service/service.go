@@ -280,12 +280,13 @@ func (s *Service) publishPlatform(ctx context.Context, tx repository.GlobalTx, t
 
 func nowUTC(s *Service) time.Time { return s.clock.Now().UTC().Truncate(time.Millisecond) }
 
-// istDate returns the IST calendar date of t.
-func istDate(t time.Time) string {
-	return t.In(time.FixedZone("IST", 5*3600+1800)).Format("2006-01-02")
-}
+// istZone is Asia/Kolkata, a fixed +05:30 offset with no daylight saving: every business date is an IST date.
+var istZone = time.FixedZone("IST", 5*3600+1800)
 
-func istHour(t time.Time) int { return t.In(time.FixedZone("IST", 5*3600+1800)).Hour() }
+// istDate returns the IST calendar date of t.
+func istDate(t time.Time) string { return t.In(istZone).Format("2006-01-02") }
+
+func istHour(t time.Time) int { return t.In(istZone).Hour() }
 
 // mintID returns a new time-sortable id for a server-generated row.
 func (s *Service) mintID() string {

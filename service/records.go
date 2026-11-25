@@ -45,6 +45,8 @@ type BillCalc struct {
 	LineIDs         []string
 	OpOrigin        string `json:"op_origin"`
 	OpSeq           int64  `json:"op_seq"`
+	// RebillGroupID names the re-bill this bill replaces another bill in ("" for any other bill).
+	RebillGroupID string `json:"rebill_group_id,omitempty"`
 }
 
 // CreditRec is the stored credit note.
@@ -87,6 +89,35 @@ type OutletRec struct {
 	OutletID       string `json:"outlet_id"`
 	RegistrationID string `json:"tax_registration_id"`
 	Regime         string `json:"regime"` // regular, composition, unregistered
+	// EffectiveFrom is the IST date from which a changed registration or regime applies; "" means the day billing is told.
+	EffectiveFrom string `json:"effective_from,omitempty"`
+	// Eras is the history: the registration and regime in force from each date, oldest first (M3).
+	Eras []OutletEra `json:"eras,omitempty"`
+}
+
+// OutletEra is the registration and regime an outlet had from a date.
+type OutletEra struct {
+	From           string `json:"from"` // IST date, "" for the first era
+	RegistrationID string `json:"tax_registration_id"`
+	Regime         string `json:"regime"`
+}
+
+// At is the registration and regime in force on the date (an IST date; "" means the current one).
+func (o OutletRec) At(date string) OutletEra {
+	cur := OutletEra{RegistrationID: o.RegistrationID, Regime: o.Regime}
+	if date == "" || len(o.Eras) == 0 {
+		return cur
+	}
+	found := false
+	for _, e := range o.Eras {
+		if e.From <= date {
+			cur, found = e, true
+		}
+	}
+	if !found {
+		cur = o.Eras[0]
+	}
+	return cur
 }
 
 // RuleSetRec is a tax rule set as received by this organisation (the tax_rule_set row with its rules).

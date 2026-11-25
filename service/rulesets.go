@@ -307,6 +307,12 @@ func (s *Service) SignTaxRuleSet(ctx context.Context, id string, so gen.SignOff)
 	})
 }
 
+// effectiveStartIST is the instant a rule set's effective date begins: the date is an IST business date, so it starts at
+// 00:00 +05:30 (A1.4 item 3). No truncation: the lead time is measured to this instant.
+func effectiveStartIST(d time.Time) time.Time {
+	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, istZone)
+}
+
 // PublishTaxRuleSet publishes a signed version under a vendor approval grant: the grant is verified, its subject hash
 // recomputed, its id recorded as used, the lead time checked on this service's clock, the version marked published and
 // one emission queued per known organisation, all in one transaction (A1.3, A1.4).
@@ -334,7 +340,7 @@ func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (g
 		if err != nil {
 			return m, err
 		}
-		if m.EffectiveDate.Time.Before(now.Add(s.lead).Truncate(24 * time.Hour)) {
+		if effectiveStartIST(m.EffectiveDate.Time).Before(now.Add(s.lead)) {
 			return m, validation("effective_date_too_soon", "the effective date is closer than the lead time", field("effective_date", "too_soon"))
 		}
 		first, err := tx.UseGrant(ctx, g.JTI, now)
@@ -453,8 +459,30 @@ func (s *Service) RecordOrganisation(ctx context.Context, tenant string) error {
 }
 
 // RecordOutlet stores what tenancy says of an outlet: its registration and regime.
+//
+// The registration and regime are kept as a history (M3): a change opens a new era from its effective IST date (the day
+// billing is told when the fact names none), and a fact that repeats the current registration and regime opens nothing, so a
+// replayed tenancy event is harmless. Documents are registered and verified under the era of their invoice date.
 func (s *Service) RecordOutlet(ctx context.Context, o OutletRec) error {
 	return s.repo.InTx(ctx, func(ctx context.Context, tx repository.Tx) error {
+		eras := []OutletEra{{RegistrationID: o.RegistrationID, Regime: o.Regime}}
+		if prev, err := load[OutletRec](ctx, tx, repository.KindOutlet, o.OutletID); err == nil {
+			eras = prev.Eras
+			if len(eras) == 0 {
+				eras = []OutletEra{{RegistrationID: prev.RegistrationID, Regime: prev.Regime}}
+			}
+			last := eras[len(eras)-1]
+			if last.RegistrationID != o.RegistrationID || last.Regime != o.Regime {
+				from := o.EffectiveFrom
+				if from == "" {
+					from = istDate(s.clock.Now())
+				}
+				eras = append(eras, OutletEra{From: from, RegistrationID: o.RegistrationID, Regime: o.Regime})
+			}
+		} else if err != repository.ErrNotFound {
+			return err
+		}
+		o.Eras, o.EffectiveFrom = eras, ""
 		return tx.SaveDoc(ctx, repository.Doc{Kind: repository.KindOutlet, ID: o.OutletID, Outlet: o.OutletID, Body: marshalDoc(o)})
 	})
 }

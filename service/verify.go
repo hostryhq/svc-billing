@@ -21,10 +21,14 @@ type verifyEnv struct {
 	byID      map[string]tax.RuleSet
 }
 
-func (ac *applyCtx) verifyEnv(ctx context.Context, fy string) (verifyEnv, error) {
+// verifyEnv resolves the environment of a document of the invoice date: the regime in force on that date, not the outlet's
+// current one (M3).
+func (ac *applyCtx) verifyEnv(ctx context.Context, fy, invoiceDate string) (verifyEnv, error) {
 	env := verifyEnv{regime: "regular", byID: map[string]tax.RuleSet{}, packClass: "fnb_standard"}
-	if o, err := load[OutletRec](ctx, ac.tx, repository.KindOutlet, ac.outlet); err == nil && o.Regime != "" {
-		env.regime = o.Regime
+	if o, err := load[OutletRec](ctx, ac.tx, repository.KindOutlet, ac.outlet); err == nil {
+		if r := o.At(invoiceDate).Regime; r != "" {
+			env.regime = r
+		}
 	}
 	profiles, _, err := loadAll[gen.OutletTaxProfile](ctx, ac.tx, repository.Query{Kind: repository.KindTaxProfile, Outlets: []string{ac.outlet}, K1: fy})
 	if err != nil {
@@ -109,7 +113,7 @@ func (ac *applyCtx) verifyBill(ctx context.Context, rec BillRec) (gen.Verificati
 	now := tstamp.Of(ac.s.clock.Now())
 	d := rec.Detail
 	rsID := deref(d.RulesetId)
-	env, err := ac.verifyEnv(ctx, rec.Calc.FinancialYear)
+	env, err := ac.verifyEnv(ctx, rec.Calc.FinancialYear, d.InvoiceDate.String())
 	if err != nil {
 		return gen.Verification{}, err
 	}
@@ -169,7 +173,7 @@ func (ac *applyCtx) verifyCredit(ctx context.Context, rec CreditRec) (gen.Verifi
 	if err != nil {
 		return gen.Verification{}, err
 	}
-	env, err := ac.verifyEnv(ctx, financialYear(n.InvoiceDate.String()))
+	env, err := ac.verifyEnv(ctx, financialYear(n.InvoiceDate.String()), orig.Detail.InvoiceDate.String())
 	if err != nil {
 		return gen.Verification{}, err
 	}

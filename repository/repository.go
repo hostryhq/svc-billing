@@ -56,6 +56,11 @@ const (
 	KindTender      = "tender_kind"
 	KindRuleSet     = "tax_rule_set"
 	KindOutlet      = "outlet"
+	// KindFact is the account of one projected document's contribution to its day (service.Fact); KindNumberClaim is
+	// the first document to carry a legal number; KindRebill the account of one re-bill (service.RebillRec).
+	KindFact        = "late_fact"
+	KindNumberClaim = "number_claim"
+	KindRebill      = "rebill_group"
 )
 
 // Doc is one stored read-model row.

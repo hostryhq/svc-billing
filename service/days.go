@@ -162,6 +162,10 @@ func (ac *applyCtx) dayClose(ctx context.Context) error {
 			if err := ac.tradingDay(ctx, date, "closed"); err != nil {
 				return err
 			}
+			// documents that reached billing before this close, and are outside the Z, are late now (CR-H3)
+			if err := ac.reexamine(ctx, date); err != nil {
+				return err
+			}
 		default:
 			// a second close with a later stamp: kept as a fact only, its difference is a revision (second_close)
 			if err := ac.exception(ctx, "late_document", gen.Info, "business_day", d.Id+"|second_close|"+ac.op.Origin, date, map[string]any{"cause": "second_close"}); err != nil {
@@ -271,7 +275,7 @@ func (s *Service) FlushRevisions(ctx context.Context) (int, error) {
 			if day.Close != nil {
 				z = day.Close.ZNumber
 			}
-			rev := gen.BusinessDayRevision{Id: s.mintID(), BusinessDayId: p.DayID, Revision: num, DisplayNumber: z + "/R" + itoa(num), Cause: gen.BusinessDayRevisionCause(p.Cause),
+			rev := gen.BusinessDayRevision{Id: revisionRowID(p.DayID, num), BusinessDayId: p.DayID, Revision: num, DisplayNumber: z + "/R" + itoa(num), Cause: gen.BusinessDayRevisionCause(p.Cause),
 				OriginDeviceId: p.Origin, OpFromSeq: p.FromSeq, OpToSeq: p.ToSeq, AddedTotals: p.Totals, AddedSeriesRanges: p.Series, CreatedAt: tstamp.Of(now)}
 			if rev.AddedSeriesRanges == nil {
 				rev.AddedSeriesRanges = []gen.SeriesRange{}
@@ -319,6 +323,12 @@ func revisionOp(day gen.BusinessDay, r gen.BusinessDayRevision) emit.Op {
 		"refund_total_paise": t.RefundTotal.AmountPaise, "internal_consumption_paise": t.InternalConsumption.AmountPaise, "tenders_json": string(tb), "series_ranges_json": string(rb)}
 	return emit.Op{Key: emit.DeterministicKey("day.revision.record", r.BusinessDayId, itoa(r.Revision)), Stream: "outlet:" + day.OutletId, Intent: "day.revision.record", IntentV: 1,
 		Muts: []Mut{{E: "business_day_revision", ID: r.Id, K: gsync.KindInsert, F: f}}, Actor: "service:" + Name}
+}
+
+// revisionRowID is the id of a revision row, derived from its key (the day and the revision number) as A2.2 item 5 requires,
+// so a billing restored to before a flush reseals the same row under the same emit key.
+func revisionRowID(dayID string, revision int) string {
+	return uuid5("business_day_revision", dayID+"|"+itoa(revision))
 }
 
 func tstampParse(s string) (time.Time, error) { return time.Parse(time.RFC3339Nano, s) }
