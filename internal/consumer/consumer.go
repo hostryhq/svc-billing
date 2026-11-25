@@ -9,7 +9,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"strings"
 
 	"github.com/hostryhq/go-common/events"
 	"github.com/hostryhq/go-common/inbox"
@@ -32,9 +31,9 @@ func Handler(repo *pg.Repo, svc *service.Service) inbox.Handler {
 	return func(ctx context.Context, tx *sql.Tx, e events.Envelope) error {
 		tctx := tenancy.With(ctx, tenancy.Context{TenantID: e.TenantID, ActorID: "billing"})
 		switch {
-		case e.Type == "sync.op.flagged":
-			return nil // a gateway notice about an op (sync's own fact), not an op: nothing for billing to project
-		case strings.HasPrefix(e.Type, "sync.op."):
+		case e.Type == gsync.OpFlaggedType || e.Type == gsync.QuarantineRecordedType:
+			return nil // gateway notices about an op (sync's own facts), not ops: nothing for billing to project
+		case isOp(e.Type):
 			op, err := parser.ParseEnvelope(e)
 			if err != nil {
 				return err // a malformed op is parked by the inbox after its retries; the error never carries the body
@@ -44,7 +43,7 @@ func Handler(repo *pg.Repo, svc *service.Service) inbox.Handler {
 				return nil
 			}
 			return repo.InSQLTx(ctx, tx, e.TenantID, func(ctx context.Context, rtx repository.Tx) error { return svc.ApplyOp(ctx, rtx, so) })
-		case e.Type == "sync.pii.erased":
+		case e.Type == gsync.PIIErasedType:
 			var d struct {
 				Origin string `json:"origin"`
 				Stream string `json:"stream"`
@@ -113,3 +112,5 @@ func Handler(repo *pg.Repo, svc *service.Service) inbox.Handler {
 		return nil // other events are not billing's
 	}
 }
+
+func isOp(typ string) bool { _, ok := gsync.OpNamespace(typ); return ok }
