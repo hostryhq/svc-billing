@@ -21,7 +21,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/events"
+	gsync "github.com/hostryhq/go-common/sync"
 )
 
 // ErrNotFound is returned for a missing row (and for another tenant's).
@@ -123,6 +125,18 @@ type Tx interface {
 
 	// Publish writes e to the outbox in this transaction, assigning key_seq per key.
 	Publish(ctx context.Context, e events.Envelope) error
+
+	// SyncStore is the projection engine's store (go-common sync) bound to this transaction, so candidates commit with
+	// the read models and the inbox row.
+	SyncStore() gsync.Store
+	// PutPII keeps the personal data an op carried beside its mutations (owned entities only, never in a read model);
+	// ErasePII removes it again (the reaction to sync.pii.erased). Both are idempotent.
+	PutPII(ctx context.Context, w gsync.PIIWrite) error
+	ErasePII(ctx context.Context, op gsync.OpRef) (int64, error)
+
+	// EnqueueEmit adds cloud-origin ops to emit_queue for this tenant in this transaction, so they exist exactly when
+	// the state change that caused them commits (go-common emit). An op whose key is already queued is ignored.
+	EnqueueEmit(ctx context.Context, now time.Time, ops ...emit.Op) error
 }
 
 // GlobalTx is one transaction on the service-global tables.
@@ -142,12 +156,13 @@ type GlobalTx interface {
 	AddTenant(ctx context.Context, tenantID string, at time.Time) error
 	Tenants(ctx context.Context) ([]string, error)
 
-	// Emission progress of a published rule set: one row per organisation.
-	QueueEmission(ctx context.Context, ruleSetID, tenantID string) error
-	// AckEmission marks the row acknowledged; it reports false when there was no such row.
-	AckEmission(ctx context.Context, ruleSetID, tenantID string, at time.Time) (bool, error)
+	// Emission progress of a published rule set: one row per organisation, naming the emit_queue key of its op. The
+	// op itself is queued with EnqueueEmit in the same transaction; its acknowledgement is the queue row being sent.
+	QueueEmission(ctx context.Context, ruleSetID, tenantID, opKey string) error
+	// EmissionCounts counts the organisations a rule set was queued for and those whose op the gateway stored.
 	EmissionCounts(ctx context.Context, ruleSetID string) (total, acknowledged int, err error)
-	PendingEmissions(ctx context.Context, limit int) ([]Emission, error)
+	// EnqueueEmit adds cloud-origin ops of one organisation to emit_queue (see Tx.EnqueueEmit).
+	EnqueueEmit(ctx context.Context, now time.Time, tenantID string, ops ...emit.Op) error
 
 	// IdemGet and IdemPut serve the vendor routes (no tenant): scoped by operation and key.
 	IdemGet(ctx context.Context, op, key string) (fingerprint string, response []byte, found bool, err error)
@@ -165,12 +180,6 @@ type Master struct {
 	State    string // draft, signed, published
 	Created  time.Time
 	Body     json.RawMessage
-}
-
-// Emission is one queued emit of a rule set to an organisation.
-type Emission struct {
-	RuleSetID string
-	TenantID  string
 }
 
 type noAuditKey struct{}

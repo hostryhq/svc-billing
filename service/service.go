@@ -10,38 +10,23 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/apperr"
 	"github.com/hostryhq/go-common/clock"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/events"
 	"github.com/hostryhq/go-common/idempotency"
 	"github.com/hostryhq/go-common/ids"
+	gsync "github.com/hostryhq/go-common/sync"
 	"github.com/hostryhq/go-common/tenancy"
 
 	"github.com/hostryhq/svc-billing/repository"
 )
-
-// Emitter sends a cloud-origin op into the tenant's sync stream (the gateway's emit, ADR-0002 S11). billing uses it
-// for the strong-session settings, the Z revisions and the rule-set emission.
-type Emitter interface {
-	// Emit sends one op and returns its identity "origin/stream/seq". An op with the same OpID is never
-	// duplicated by the gateway (a retry is safe).
-	Emit(ctx context.Context, op EmitOp) (opID string, err error)
-}
-
-// EmitOp is one cloud-origin op.
-type EmitOp struct {
-	TenantID string
-	// Stream is "outlet:<id>" or "tenant".
-	Stream string
-	// OpID is the deterministic id (UUIDv5) that makes a retry idempotent.
-	OpID   string
-	Intent string
-	Muts   []Mut
-}
 
 // OpenChecks answers how many checks an outlet has open. It is orders' internal route; billing asks it only when
 // the owner changes the numbering mode, never on the trading path.
@@ -55,20 +40,25 @@ type Service struct {
 	clock   clock.Clock
 	gen     *ids.Generator
 	log     *slog.Logger
-	emitter Emitter
+	emitter emit.Emitter
 	orders  OpenChecks
 	grants  GrantVerifier
 	newID   func() string
+	regOnce sync.Once
+	reg     *gsync.Registry
+	regErr  error
 	lead    time.Duration
 	window  time.Duration
 }
 
 // Options configure a Service. Zero values pick production defaults.
 type Options struct {
-	Clock   clock.Clock
-	IDs     *ids.Generator
-	Log     *slog.Logger
-	Emitter Emitter
+	Clock clock.Clock
+	IDs   *ids.Generator
+	Log   *slog.Logger
+	// Emitter is the gateway emit client (go-common emit.Client) for the interactive settings routes; queued emissions
+	// (rule sets, Z revisions) go through emit_queue and its worker, not through this field.
+	Emitter emit.Emitter
 	Orders  OpenChecks
 	Grants  GrantVerifier
 	// NewID overrides id minting for server-generated ids (the test double serves the ids of the spec examples).
@@ -107,8 +97,8 @@ func New(repo repository.Repository, o Options) *Service {
 
 type unavailableEmitter struct{}
 
-func (unavailableEmitter) Emit(context.Context, EmitOp) (string, error) {
-	return "", apperr.New(apperr.Unavailable, "emit.unavailable", "the sync gateway emit is not configured")
+func (unavailableEmitter) Emit(context.Context, ids.ID, []emit.Op) ([]emit.Result, error) {
+	return nil, emit.NewUnavailable(errors.New("the sync gateway emit is not configured"), 0)
 }
 
 // Idem identifies one idempotent request: the operation, the client's key and the request fingerprint.

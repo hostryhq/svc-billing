@@ -1,14 +1,19 @@
 package double
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"sync"
-	"time"
 
 	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/apperr"
 	"github.com/hostryhq/go-common/clock"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/tenancy"
 
@@ -38,85 +43,211 @@ type OpenChecksAt int
 // OpenCheckCount implements service.OpenChecks.
 func (n OpenChecksAt) OpenCheckCount(context.Context, string) (int, error) { return int(n), nil }
 
-// Emitter is the double's sync gateway emit: it records every emitted op and loops it straight back into the
-// projection, as the bus would, so a settings change is visible to the next read.
-type Emitter struct {
+// Gateway is the double's sync gateway: an in-process fake of POST /internal/v1/emit (api-specs openapi/sync/v1, emitOps)
+// with the rules billing depends on. It stores every op once per (tenant, key) (a replay answers the original place with
+// replayed true, the same key with other content is refused 422 idempotency.mismatch), refuses an intent billing does not
+// own, an entity or kind the intent does not list and a tenant stream it has not seen, stamps origin cloud-1 and a
+// sequence, and loops each stored op straight back into the projection, as the bus would. It implements emit.Emitter (for
+// the service and the emit_queue drain) and http.Handler (for emit.Client in the real-service tests).
+//
+// Failure injection: Fail makes every call answer as an unreachable gateway (503 emit.unavailable, nothing stored).
+type Gateway struct {
 	svc   *service.Service
 	clock clock.Clock
 	mu    sync.Mutex
 	seq   int64
-	ops   []service.EmitOp
-	Fail  error // when set, Emit returns it (a gateway outage)
+	ops   []GatewayOp
+	byKey map[string]int
+	// Fail, when set, is returned by Emit (use emit.NewUnavailable for an outage).
+	Fail error
 }
 
-// NewEmitter returns an emitter that loops ops back into a service set later with SetService (the real-service
+// GatewayOp is one op the gateway stored.
+type GatewayOp struct {
+	Tenant string
+	Op     emit.Op
+	Result emit.Result
+}
+
+// NewGateway returns a gateway that loops stored ops back into a service set later with SetService (the real-service
 // integration tests wire it to the Postgres-backed service).
-func NewEmitter(clk clock.Clock) *Emitter { return &Emitter{clock: clk} }
+func NewGateway(clk clock.Clock) *Gateway { return &Gateway{clock: clk, byKey: map[string]int{}} }
 
-// SetService sets the service the emitted ops are projected into.
-func (e *Emitter) SetService(svc *service.Service) { e.svc = svc }
+// SetService sets the service the stored ops are projected into.
+func (g *Gateway) SetService(svc *service.Service) { g.svc = svc }
 
-// Reset forgets the emitted ops.
-func (e *Emitter) Reset() { e.mu.Lock(); e.seq, e.ops, e.Fail = 0, nil, nil; e.mu.Unlock() }
-
-// Ops returns the ops emitted so far.
-func (e *Emitter) Ops() []service.EmitOp {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return append([]service.EmitOp(nil), e.ops...)
+// Reset forgets the stored ops and any injected failure.
+func (g *Gateway) Reset() {
+	g.mu.Lock()
+	g.seq, g.ops, g.byKey, g.Fail = 0, nil, map[string]int{}, nil
+	g.mu.Unlock()
 }
 
-// Emit implements service.Emitter. The example op id is "cloud-1/outlet:<first 8 of the outlet id>/731".
-func (e *Emitter) Emit(ctx context.Context, op service.EmitOp) (string, error) {
-	e.mu.Lock()
-	if e.Fail != nil {
-		err := e.Fail
-		e.mu.Unlock()
-		return "", err
-	}
-	for _, o := range e.ops {
-		if o.OpID == op.OpID {
-			e.mu.Unlock()
-			return opIdent(o, e.seqOf(o)), nil // a retry is never duplicated
+// Ops returns the ops stored so far, in order.
+func (g *Gateway) Ops() []GatewayOp {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]GatewayOp(nil), g.ops...)
+}
+
+// allowed is what billing's cloud-origin intents list (api-specs sync/intents/cloud.yaml): entity to kinds, and the stream
+// kind each uses.
+var allowed = map[string]struct {
+	entities map[string][]string
+	stream   string
+}{
+	"tax.rule_set.publish":        {map[string][]string{"tax_rule_set": {"insert"}, "tax_rule": {"insert"}}, "tenant"},
+	"settings.tax_profile.set":    {map[string][]string{"outlet_tax_profile": {"insert", "set"}}, "outlet"},
+	"settings.numbering.set":      {map[string][]string{"billing_settings": {"insert", "set"}}, "outlet"},
+	"settings.discount_limit.set": {map[string][]string{"billing_settings": {"set"}}, "outlet"},
+	"day.revision.record":         {map[string][]string{"business_day_revision": {"insert"}}, "outlet"},
+}
+
+func contains(l []string, v string) bool {
+	for _, x := range l {
+		if x == v {
+			return true
 		}
 	}
-	e.seq++
-	n := 730 + e.seq
-	e.ops = append(e.ops, op)
-	e.mu.Unlock()
-	pid := opIdent(op, n)
-	tctx := tenancy.With(ctx, tenancy.Context{TenantID: ids.ID(op.TenantID)})
-	err := e.svc.Project(tctx, service.Op{Tenant: op.TenantID, Origin: "cloud-1", Stream: op.Stream, Seq: n, Hash: op.OpID, HLC: fmt.Sprintf("%020d", e.clock.Now().UnixMilli()),
-		Intent: op.Intent, At: e.clock.Now(), Muts: op.Muts})
-	return pid, err
+	return false
 }
 
-func (e *Emitter) seqOf(o service.EmitOp) int64 {
-	for i, x := range e.ops {
-		if x.OpID == o.OpID {
-			return 731 + int64(i)
+func (g *Gateway) check(o emit.Op) error {
+	if err := o.Validate(); err != nil {
+		return &emit.RejectedError{Status: http.StatusUnprocessableEntity, Code: "validation"}
+	}
+	a, ok := allowed[o.Intent]
+	if !ok {
+		return &emit.RejectedError{Status: http.StatusForbidden, Code: "emit.intent_not_allowed"}
+	}
+	if !strings.HasPrefix(o.Stream, a.stream+":") {
+		return &emit.RejectedError{Status: http.StatusUnprocessableEntity, Code: "emit.stream_not_allowed"}
+	}
+	for _, m := range o.Muts {
+		if !contains(a.entities[m.E], m.K) {
+			return &emit.RejectedError{Status: http.StatusUnprocessableEntity, Code: "emit.entity_not_allowed"}
 		}
 	}
-	return 0
+	return nil
 }
 
-func opIdent(o service.EmitOp, n int64) string {
-	stream := o.Stream
-	if len(stream) > len("outlet:")+8 {
-		stream = stream[:len("outlet:")+8]
+// Emit implements emit.Emitter.
+func (g *Gateway) Emit(ctx context.Context, tenant ids.ID, ops []emit.Op) ([]emit.Result, error) {
+	g.mu.Lock()
+	if g.Fail != nil {
+		err := g.Fail
+		g.mu.Unlock()
+		return nil, err
 	}
-	return fmt.Sprintf("cloud-1/%s/%d", stream, n)
+	if tenant == "" || len(ops) == 0 || len(ops) > 200 {
+		g.mu.Unlock()
+		return nil, &emit.RejectedError{Status: http.StatusUnprocessableEntity, Code: "validation"}
+	}
+	// the batch is atomic: check everything before storing anything
+	for _, o := range ops {
+		if err := g.check(o); err != nil {
+			g.mu.Unlock()
+			return nil, err
+		}
+		if i, ok := g.byKey[tenant.String()+"|"+o.Key]; ok && !sameOp(g.ops[i].Op, o) {
+			g.mu.Unlock()
+			return nil, &emit.RejectedError{Status: http.StatusUnprocessableEntity, Code: "idempotency.mismatch"}
+		}
+	}
+	res := make([]emit.Result, len(ops))
+	var fresh []emit.Result
+	var freshOps []emit.Op
+	for i, o := range ops {
+		k := tenant.String() + "|" + o.Key
+		if j, ok := g.byKey[k]; ok {
+			r := g.ops[j].Result
+			r.Replayed = true
+			res[i] = r
+			continue
+		}
+		g.seq++
+		r := emit.Result{Key: o.Key, Origin: "cloud-1", Stream: o.Stream, Seq: 730 + g.seq}
+		g.ops = append(g.ops, GatewayOp{Tenant: tenant.String(), Op: o, Result: r})
+		g.byKey[k] = len(g.ops) - 1
+		res[i] = r
+		fresh, freshOps = append(fresh, r), append(freshOps, o)
+	}
+	now := g.clock.Now()
+	g.mu.Unlock()
+	if g.svc == nil {
+		return res, nil
+	}
+	tctx := tenancy.With(ctx, tenancy.Context{TenantID: tenant})
+	for i, r := range fresh {
+		o := freshOps[i]
+		so := service.Op{Tenant: tenant.String(), Origin: r.Origin, Stream: r.Stream, Seq: r.Seq, Hash: o.Key, HLC: fmt.Sprintf("%016x", now.UnixMilli()<<16),
+			Intent: o.Intent, At: now, Actor: o.Actor, Muts: o.Muts}
+		if rest, ok := strings.CutPrefix(r.Stream, "outlet:"); ok {
+			so.Outlet = rest
+		}
+		if err := g.svc.Project(tctx, so); err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
-// Grants is the double's vendor approval grant verifier. It knows the example grant of the contract
-// ("grant_example_0190a1b2", for rule set 7042) and any grant created with Issue.
+func sameOp(a, b emit.Op) bool {
+	x, _ := json.Marshal(a)
+	y, _ := json.Marshal(b)
+	return bytes.Equal(x, y)
+}
+
+// ServeHTTP implements POST /internal/v1/emit as the gateway answers it (a service token is required; a refusal is a
+// problem with the gateway's code; the unreachable case is the Fail switch).
+func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost || r.URL.Path != emit.Path {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Header.Get(emit.ServiceTokenHeader) == "" {
+		problem(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	var req struct {
+		TenantID ids.ID    `json:"tenant_id"`
+		Ops      []emit.Op `json:"ops"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20)).Decode(&req); err != nil {
+		problem(w, http.StatusUnprocessableEntity, "validation")
+		return
+	}
+	res, err := g.Emit(r.Context(), req.TenantID, req.Ops)
+	var rej *emit.RejectedError
+	switch {
+	case errors.As(err, &rej):
+		problem(w, rej.Status, rej.Code)
+	case err != nil:
+		w.Header().Set("Retry-After", "1")
+		problem(w, http.StatusServiceUnavailable, "emit.unavailable")
+	default:
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ops": res})
+	}
+}
+
+func problem(w http.ResponseWriter, status int, code string) {
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"type": "urn:hostry:problem:" + code, "status": status, "code": code})
+}
+
+// Grants is the double's vendor approval grant verifier: the signature check behind service.GrantVerifier, which it
+// replaces with a table. It knows the example grant of the contract (api-specs common/vendor.yaml, a token for another
+// kind) as the publish grant of the rule-set-signed world, and any grant created with Issue. Every claim check after the
+// signature is the real service's own.
 type Grants struct {
 	mu     sync.Mutex
 	issued map[string]service.Grant
 }
 
 // ExampleGrant is the raw grant the contract examples send.
-const ExampleGrant = "grant_example_0190a1b2"
+func ExampleGrant() string { return seed.ExampleGrantToken() }
 
 // Issue registers a grant under raw and returns raw.
 func (g *Grants) Issue(raw string, gr service.Grant) string {
@@ -134,14 +265,10 @@ func (g *Grants) Verify(_ context.Context, raw string) (service.Grant, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if gr, ok := g.issued[raw]; ok {
-		if !gr.ExpiresAt.IsZero() && time.Now().After(gr.ExpiresAt) && gr.ExpiresAt.Before(seed.At) {
-			return gr, service.ErrGrantExpired
-		}
 		return gr, nil
 	}
-	if raw == ExampleGrant {
-		return service.Grant{ID: "grant-example-1", ApprovalID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f90f1", Kind: "tax_rule_set_publish", Requester: "vendor-user-2",
-			Approver: "vendor-user-1", SubjectHash: seed.PublishGrantSubject()}, nil
+	if raw == ExampleGrant() {
+		return seed.ExamplePublishGrant(), nil
 	}
 	return service.Grant{}, service.ErrGrantInvalid
 }

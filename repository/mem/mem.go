@@ -13,7 +13,10 @@ import (
 	"time"
 
 	"github.com/hostryhq/go-auth"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/events"
+	"github.com/hostryhq/go-common/ids"
+	gsync "github.com/hostryhq/go-common/sync"
 	"github.com/hostryhq/go-common/tenancy"
 
 	"github.com/hostryhq/svc-billing/internal/nulldb"
@@ -25,15 +28,24 @@ type idemRow struct {
 	resp []byte
 }
 
+type candID struct {
+	ref gsync.OpRef
+	idx int
+}
+
 type tenant struct {
-	docs map[string]repository.Doc // kind + "\x00" + id
-	ops  map[string]string
-	idem map[string]idemRow
-	keys map[string]int64
+	docs  map[string]repository.Doc // kind + "\x00" + id
+	ops   map[string]string
+	idem  map[string]idemRow
+	keys  map[string]int64
+	cands map[gsync.RowKey]map[candID]gsync.Candidate // the projection engine's candidates
+	voids map[gsync.OpRef]bool
+	pii   []gsync.PIIWrite
 }
 
 func newTenant() *tenant {
-	return &tenant{docs: map[string]repository.Doc{}, ops: map[string]string{}, idem: map[string]idemRow{}, keys: map[string]int64{}}
+	return &tenant{docs: map[string]repository.Doc{}, ops: map[string]string{}, idem: map[string]idemRow{}, keys: map[string]int64{},
+		cands: map[gsync.RowKey]map[candID]gsync.Candidate{}, voids: map[gsync.OpRef]bool{}}
 }
 
 func (t *tenant) clone() *tenant {
@@ -50,6 +62,17 @@ func (t *tenant) clone() *tenant {
 	for k, v := range t.keys {
 		c.keys[k] = v
 	}
+	for k, m := range t.cands {
+		cm := make(map[candID]gsync.Candidate, len(m))
+		for id, cand := range m {
+			cm[id] = cand
+		}
+		c.cands[k] = cm
+	}
+	for k, v := range t.voids {
+		c.voids[k] = v
+	}
+	c.pii = append(c.pii, t.pii...)
 	return c
 }
 
@@ -63,9 +86,15 @@ type global struct {
 }
 
 type emissionRow struct {
-	ruleSet, tenant string
-	acked           bool
-	ackedAt         time.Time
+	ruleSet, tenant, opKey string
+}
+
+// QueuedEmit is one row of the in-memory emit_queue.
+type QueuedEmit struct {
+	Tenant string
+	Op     emit.Op
+	State  string // pending, sent or failed
+	Result emit.Result
 }
 
 func newGlobal() *global {
@@ -103,6 +132,7 @@ type Store struct {
 	tenants map[string]*tenant
 	glob    *global
 	outbox  []events.Envelope
+	emits   []*QueuedEmit
 	db      *sql.DB // a null database: go-auth's audited transaction needs a *sql.Tx, so the double runs its real code path
 }
 
@@ -118,6 +148,7 @@ func (s *Store) Reset() {
 	s.tenants = map[string]*tenant{}
 	s.glob = newGlobal()
 	s.outbox = nil
+	s.emits = nil
 }
 
 // Events returns the events published so far, in order.
@@ -143,13 +174,14 @@ func (s *Store) InTx(ctx context.Context, fn func(ctx context.Context, tx reposi
 	if cur == nil {
 		cur = newTenant()
 	}
-	x := &tx{t: cur.clone()}
+	x := &tx{t: cur.clone(), tenantID: id}
 	// the same audited path as production: a vendor or support principal's audit row is written with the work
 	if err := auth.WithAuditedTx(ctx, s.db, func(ctx context.Context, _ *sql.Tx) error { return fn(ctx, x) }); err != nil {
 		return err
 	}
 	s.tenants[id] = x.t
 	s.outbox = append(s.outbox, x.pub...)
+	s.enqueue(x.emits)
 	return nil
 }
 
@@ -157,7 +189,7 @@ func (s *Store) InTx(ctx context.Context, fn func(ctx context.Context, tx reposi
 func (s *Store) InGlobalTx(ctx context.Context, fn func(ctx context.Context, tx repository.GlobalTx) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	x := &gtx{g: s.glob.clone()}
+	x := &gtx{g: s.glob.clone(), s: s}
 	run := func(ctx context.Context, _ *sql.Tx) error { return fn(ctx, x) }
 	var err error
 	if p, ok := auth.PrincipalFrom(ctx); ok && p.IsVendorActor() && !repository.NoAudit(ctx) {
@@ -170,12 +202,177 @@ func (s *Store) InGlobalTx(ctx context.Context, fn func(ctx context.Context, tx 
 	}
 	s.glob = x.g
 	s.outbox = append(s.outbox, x.pub...)
+	s.enqueue(x.emits)
 	return nil
 }
 
+// enqueue adds committed queue rows; a (tenant, key) already queued is ignored, as in emit_queue.
+func (s *Store) enqueue(rows []*QueuedEmit) {
+	for _, r := range rows {
+		dup := false
+		for _, e := range s.emits {
+			if e.Tenant == r.Tenant && e.Op.Key == r.Op.Key {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			s.emits = append(s.emits, r)
+		}
+	}
+}
+
+// Queued returns the emit_queue rows (test helper and the double's view of the outbox of emissions).
+func (s *Store) Queued() []QueuedEmit {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]QueuedEmit, len(s.emits))
+	for i, e := range s.emits {
+		out[i] = *e
+	}
+	return out
+}
+
+// DrainEmits sends the pending queue rows to em, oldest first, in the order of the queue and as one batch per call of
+// the gateway, like go-common's emit.Queue does on Postgres: a transient failure leaves the rows pending (and stops, to
+// keep order), a refusal marks the row failed. It does not hold the store while the gateway is called, because the
+// gateway's op comes back through the projection. It returns how many rows were sent.
+func (s *Store) DrainEmits(ctx context.Context, em emit.Emitter) (int, error) {
+	sent := 0
+	for {
+		s.mu.Lock()
+		var next *QueuedEmit
+		for _, e := range s.emits {
+			if e.State == emit.StatePending {
+				next = e
+				break
+			}
+		}
+		if next == nil {
+			s.mu.Unlock()
+			return sent, nil
+		}
+		tenantID, op := next.Tenant, next.Op
+		s.mu.Unlock()
+		res, err := em.Emit(ctx, ids.ID(tenantID), []emit.Op{op})
+		s.mu.Lock()
+		switch {
+		case err == nil:
+			next.State, next.Result = emit.StateSent, res[0]
+			sent++
+		case emit.IsTransient(err):
+			s.mu.Unlock()
+			return sent, nil
+		default:
+			next.State = emit.StateFailed
+		}
+		s.mu.Unlock()
+	}
+}
+
 type tx struct {
-	t   *tenant
-	pub []events.Envelope
+	t        *tenant
+	tenantID string
+	pub      []events.Envelope
+	emits    []*QueuedEmit
+}
+
+// SyncStore implements repository.Tx: the engine's store over this transaction's tenant state.
+func (x *tx) SyncStore() gsync.Store { return memSync{t: x.t} }
+
+func (x *tx) PutPII(_ context.Context, w gsync.PIIWrite) error {
+	for _, p := range x.t.pii {
+		if p.Key == w.Key && p.Ref == w.Ref {
+			return nil
+		}
+	}
+	x.t.pii = append(x.t.pii, w)
+	return nil
+}
+
+func (x *tx) ErasePII(_ context.Context, op gsync.OpRef) (int64, error) {
+	var kept []gsync.PIIWrite
+	var n int64
+	for _, p := range x.t.pii {
+		if p.Ref == op {
+			n++
+			continue
+		}
+		kept = append(kept, p)
+	}
+	x.t.pii = kept
+	return n, nil
+}
+
+// PII returns the personal data held for a tenant (test helper).
+func (s *Store) PII(tenantID string) []gsync.PIIWrite {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if t := s.tenants[tenantID]; t != nil {
+		return append([]gsync.PIIWrite(nil), t.pii...)
+	}
+	return nil
+}
+
+func (x *tx) EnqueueEmit(_ context.Context, _ time.Time, ops ...emit.Op) error {
+	for i, o := range ops {
+		if err := o.Validate(); err != nil {
+			return fmt.Errorf("op %d: %w", i, err)
+		}
+		x.emits = append(x.emits, &QueuedEmit{Tenant: x.tenantID, Op: o, State: emit.StatePending})
+	}
+	return nil
+}
+
+// memSync is gsync.Store over one tenant's state.
+type memSync struct{ t *tenant }
+
+func (m memSync) AddCandidate(_ context.Context, k gsync.RowKey, c gsync.Candidate) error {
+	r := m.t.cands[k]
+	if r == nil {
+		r = map[candID]gsync.Candidate{}
+		m.t.cands[k] = r
+	}
+	if id := (candID{c.Ref, c.Idx}); r[id].Kind == "" {
+		r[id] = c
+	}
+	return nil
+}
+
+func (m memSync) Candidates(_ context.Context, k gsync.RowKey) ([]gsync.Candidate, error) {
+	out := make([]gsync.Candidate, 0, len(m.t.cands[k]))
+	for _, c := range m.t.cands[k] {
+		out = append(out, c)
+	}
+	return out, nil
+}
+
+func (m memSync) RowsOfOp(_ context.Context, _ string, ref gsync.OpRef) ([]gsync.RowKey, error) {
+	var out []gsync.RowKey
+	for k, r := range m.t.cands {
+		for id := range r {
+			if id.ref == ref {
+				out = append(out, k)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+func (m memSync) AddVoid(_ context.Context, _ string, ref gsync.OpRef) error {
+	m.t.voids[ref] = true
+	return nil
+}
+
+func (m memSync) Voided(_ context.Context, _ string, refs []gsync.OpRef) (map[gsync.OpRef]bool, error) {
+	out := map[gsync.OpRef]bool{}
+	for _, r := range refs {
+		if m.t.voids[r] {
+			out[r] = true
+		}
+	}
+	return out, nil
 }
 
 func dk(kind, id string) string { return kind + "\x00" + id }
@@ -287,8 +484,10 @@ func (x *tx) Publish(_ context.Context, e events.Envelope) error {
 }
 
 type gtx struct {
-	g   *global
-	pub []events.Envelope
+	g     *global
+	s     *Store
+	pub   []events.Envelope
+	emits []*QueuedEmit
 }
 
 func (x *gtx) PutMaster(_ context.Context, m repository.Master) error {
@@ -370,50 +569,40 @@ func (x *gtx) Tenants(context.Context) ([]string, error) {
 	return out, nil
 }
 
-func (x *gtx) QueueEmission(_ context.Context, rs, t string) error {
+func (x *gtx) QueueEmission(_ context.Context, rs, t, opKey string) error {
 	k := rs + "|" + t
 	if _, ok := x.g.emissions[k]; !ok {
-		x.g.emissions[k] = &emissionRow{ruleSet: rs, tenant: t}
+		x.g.emissions[k] = &emissionRow{ruleSet: rs, tenant: t, opKey: opKey}
 	}
 	return nil
 }
 
-func (x *gtx) AckEmission(_ context.Context, rs, t string, at time.Time) (bool, error) {
-	e, ok := x.g.emissions[rs+"|"+t]
-	if !ok {
-		return false, nil
-	}
-	if !e.acked {
-		e.acked, e.ackedAt = true, at
-	}
-	return true, nil
-}
-
+// EmissionCounts counts a row acknowledged when its emit_queue row was sent.
 func (x *gtx) EmissionCounts(_ context.Context, rs string) (int, int, error) {
 	var total, acked int
 	for _, e := range x.g.emissions {
-		if e.ruleSet == rs {
-			total++
-			if e.acked {
+		if e.ruleSet != rs {
+			continue
+		}
+		total++
+		for _, q := range x.s.emits {
+			if q.Tenant == e.tenant && q.Op.Key == e.opKey && q.State == emit.StateSent {
 				acked++
+				break
 			}
 		}
 	}
 	return total, acked, nil
 }
 
-func (x *gtx) PendingEmissions(_ context.Context, limit int) ([]repository.Emission, error) {
-	var out []repository.Emission
-	for _, e := range x.g.emissions {
-		if !e.acked {
-			out = append(out, repository.Emission{RuleSetID: e.ruleSet, TenantID: e.tenant})
+func (x *gtx) EnqueueEmit(_ context.Context, _ time.Time, tenantID string, ops ...emit.Op) error {
+	for i, o := range ops {
+		if err := o.Validate(); err != nil {
+			return fmt.Errorf("op %d: %w", i, err)
 		}
+		x.emits = append(x.emits, &QueuedEmit{Tenant: tenantID, Op: o, State: emit.StatePending})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].RuleSetID+out[i].TenantID < out[j].RuleSetID+out[j].TenantID })
-	if limit > 0 && len(out) > limit {
-		out = out[:limit]
-	}
-	return out, nil
+	return nil
 }
 
 func (x *gtx) IdemGet(_ context.Context, op, key string) (string, []byte, bool, error) {

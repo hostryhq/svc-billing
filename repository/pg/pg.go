@@ -14,9 +14,11 @@ import (
 	"time"
 
 	"github.com/hostryhq/go-auth"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/events"
 	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/outbox"
+	gsync "github.com/hostryhq/go-common/sync"
 	"github.com/hostryhq/go-common/tenancy"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -123,6 +125,25 @@ func (r *Repo) Ping(ctx context.Context) error {
 		return err
 	}
 	return r.global.PingContext(ctx)
+}
+
+// SyncStore implements repository.Tx: the engine's Postgres store on this transaction.
+func (x *pgTx) SyncStore() gsync.Store { return gsync.PGStore{DB: x.tx} }
+
+func (x *pgTx) PutPII(ctx context.Context, w gsync.PIIWrite) error {
+	return gsync.PGStore{DB: x.tx}.PutPII(ctx, w)
+}
+
+func (x *pgTx) ErasePII(ctx context.Context, op gsync.OpRef) (int64, error) {
+	res, err := x.tx.ExecContext(ctx, `DELETE FROM sync_pii WHERE tenant_id = $1 AND origin = $2 AND stream = $3 AND seq = $4`, x.t.String(), op.Origin, op.Stream, op.Seq)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+func (x *pgTx) EnqueueEmit(ctx context.Context, now time.Time, ops ...emit.Op) error {
+	return emit.Enqueue(ctx, x.tx, now, x.t, ops...)
 }
 
 type pgTx struct {
@@ -359,45 +380,23 @@ func (x *gTx) Tenants(ctx context.Context) ([]string, error) {
 	return out, rows.Err()
 }
 
-func (x *gTx) QueueEmission(ctx context.Context, rs, t string) error {
-	_, err := x.tx.ExecContext(ctx, `INSERT INTO rule_set_emissions (rule_set_id, tenant_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, rs, t)
+func (x *gTx) QueueEmission(ctx context.Context, rs, t, opKey string) error {
+	_, err := x.tx.ExecContext(ctx, `INSERT INTO rule_set_emissions (rule_set_id, tenant_id, op_key) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING`, rs, t, opKey)
 	return err
 }
 
-func (x *gTx) AckEmission(ctx context.Context, rs, t string, at time.Time) (bool, error) {
-	res, err := x.tx.ExecContext(ctx, `UPDATE rule_set_emissions SET acked_at = COALESCE(acked_at, $3) WHERE rule_set_id = $1 AND tenant_id = $2`, rs, t, at.UTC())
-	if err != nil {
-		return false, err
-	}
-	n, _ := res.RowsAffected()
-	return n == 1, nil
-}
-
+// EmissionCounts counts acknowledged rows through the emit_queue: an op is acknowledged when the worker stored it at the
+// gateway (state sent).
 func (x *gTx) EmissionCounts(ctx context.Context, rs string) (int, int, error) {
 	var total, acked int
-	err := x.tx.QueryRowContext(ctx, `SELECT count(*), count(acked_at) FROM rule_set_emissions WHERE rule_set_id = $1`, rs).Scan(&total, &acked)
+	err := x.tx.QueryRowContext(ctx, `SELECT count(*), count(q.id) FROM rule_set_emissions e
+		LEFT JOIN emit_queue q ON q.tenant_id = e.tenant_id::text AND q.key = e.op_key AND q.state = 'sent'
+		WHERE e.rule_set_id = $1`, rs).Scan(&total, &acked)
 	return total, acked, err
 }
 
-func (x *gTx) PendingEmissions(ctx context.Context, limit int) ([]repository.Emission, error) {
-	q := `SELECT rule_set_id::text, tenant_id::text FROM rule_set_emissions WHERE acked_at IS NULL ORDER BY rule_set_id, tenant_id`
-	if limit > 0 {
-		q += ` LIMIT ` + strconv.Itoa(limit)
-	}
-	rows, err := x.tx.QueryContext(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	var out []repository.Emission
-	for rows.Next() {
-		var e repository.Emission
-		if err := rows.Scan(&e.RuleSetID, &e.TenantID); err != nil {
-			return nil, err
-		}
-		out = append(out, e)
-	}
-	return out, rows.Err()
+func (x *gTx) EnqueueEmit(ctx context.Context, now time.Time, tenant string, ops ...emit.Op) error {
+	return emit.Enqueue(ctx, x.tx, now, ids.ID(tenant), ops...)
 }
 
 func (x *gTx) IdemGet(ctx context.Context, op, key string) (string, []byte, bool, error) {

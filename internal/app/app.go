@@ -10,6 +10,7 @@ import (
 
 	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/clock"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/health"
 	"github.com/hostryhq/go-common/ids"
 
@@ -32,9 +33,11 @@ type Options struct {
 	AuthClock clock.Clock // token checks; defaults to Clock
 	IDs       *ids.Generator
 	Log       *slog.Logger
-	Emitter   service.Emitter
-	Orders    service.OpenChecks
-	Grants    service.GrantVerifier
+	// Emitter is the gateway emit client (emit.Client); nil leaves the settings routes answering 503 emit.unavailable and
+	// the queued emissions waiting.
+	Emitter emit.Emitter
+	Orders  service.OpenChecks
+	Grants  service.GrantVerifier
 	// PublishLead is the rule-set publication lead time (deployment configuration; default 24 h).
 	PublishLead time.Duration
 }
@@ -45,6 +48,8 @@ type App struct {
 	Service *service.Service
 	Repo    *pg.Repo
 	Health  *health.Handler
+	// Queue drains emit_queue (rule sets, Z revisions) to the gateway; nil when no Emitter is configured.
+	Queue *emit.Queue
 }
 
 // Build wires the Postgres-backed service.
@@ -73,5 +78,9 @@ func Build(o Options) (*App, error) {
 	}
 	h := health.New(0)
 	h.Add("postgres", repo.Ping)
-	return &App{Handler: api.New(api.Config{Service: svc, Guard: guard, Clock: o.Clock, Log: o.Log, Health: h}), Service: svc, Repo: repo, Health: h}, nil
+	var q *emit.Queue
+	if o.Emitter != nil {
+		q = &emit.Queue{DB: o.GlobalDB, Emitter: o.Emitter, Clock: o.Clock, Log: o.Log}
+	}
+	return &App{Handler: api.New(api.Config{Service: svc, Guard: guard, Clock: o.Clock, Log: o.Log, Health: h}), Service: svc, Repo: repo, Health: h, Queue: q}, nil
 }

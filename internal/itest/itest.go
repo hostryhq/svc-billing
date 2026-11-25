@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/hostryhq/go-common/clock"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/testkit"
 
@@ -25,12 +26,15 @@ import (
 
 // Stack is the real service over a fresh database.
 type Stack struct {
-	DB      *pgtest.DB
-	App     *app.App
-	Srv     *httptest.Server
-	Clock   *testkit.FakeClock
-	Emitter *double.Emitter
-	Grants  *double.Grants
+	DB    *pgtest.DB
+	App   *app.App
+	Srv   *httptest.Server
+	Clock *testkit.FakeClock
+	// Gateway is the in-process fake of the sync gateway (POST /internal/v1/emit), served over HTTP to the real emit.Client
+	// that the service and the emit_queue worker use.
+	Gateway    *double.Gateway
+	GatewaySrv *httptest.Server
+	Grants     *double.Grants
 	*double.Tokens
 }
 
@@ -41,7 +45,10 @@ func New(t testing.TB) *Stack {
 	clk := testkit.NewClock()
 	clk.Set(seed.At)
 	tk := double.NewTokens()
-	em := double.NewEmitter(clk)
+	gw := double.NewGateway(clk)
+	gsrv := httptest.NewServer(gw)
+	t.Cleanup(gsrv.Close)
+	em := &emit.Client{BaseURL: gsrv.URL, Token: func(context.Context) (string, error) { return "test-service-token", nil }}
 	g := &double.Grants{}
 	a, err := app.Build(app.Options{
 		AppDB: db.App, GlobalDB: db.Global,
@@ -52,8 +59,8 @@ func New(t testing.TB) *Stack {
 	if err != nil {
 		t.Fatal(err)
 	}
-	em.SetService(a.Service)
-	s := &Stack{DB: db, App: a, Srv: httptest.NewServer(a.Handler), Clock: clk, Emitter: em, Grants: g, Tokens: tk}
+	gw.SetService(a.Service)
+	s := &Stack{DB: db, App: a, Srv: httptest.NewServer(a.Handler), Clock: clk, Gateway: gw, GatewaySrv: gsrv, Grants: g, Tokens: tk}
 	t.Cleanup(s.Srv.Close)
 	return s
 }
@@ -63,7 +70,8 @@ func (s *Stack) SeedWorld(ctx context.Context, world string) error {
 	if err := s.DB.Truncate(ctx); err != nil {
 		return err
 	}
-	s.Emitter.Reset()
+	s.Gateway.Reset()
+	s.Clock.Set(seed.WorldAt(world))
 	return seed.Apply(ctx, s.App.Repo, world)
 }
 
@@ -143,3 +151,7 @@ func Bearer(tok string) http.Header {
 	h.Set("Authorization", "Bearer "+tok)
 	return h
 }
+
+// DrainEmits sends the queued emissions (rule sets, Z revisions) through the real emit_queue worker and emit client to the
+// fake gateway, and returns how many rows were sent.
+func (s *Stack) DrainEmits(ctx context.Context) (int, error) { return s.App.Queue.Drain(ctx) }

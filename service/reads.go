@@ -228,12 +228,19 @@ func (s *Service) ListDocumentGaps(ctx context.Context, status, kind, after stri
 }
 
 // GetSeriesLastSeen answers tenancy and identity (internal, service caller): the last number seen of a series. The
-// series is named by its tenancy registry id, which billing learns with RecordSeries.
+// series is named by its tenancy registry id, which billing learns from tenancy.series.issued (RecordSeriesIssued); a
+// series no number reached yet answers count 0 and no last number. The newest financial year answers.
 func (s *Service) GetSeriesLastSeen(ctx context.Context, seriesID string) (gen.SeriesLastSeen, error) {
 	return run(ctx, s, func(ctx context.Context, tx repository.Tx) (gen.SeriesLastSeen, error) {
 		docs, err := tx.FindDocs(ctx, repository.Query{Kind: repository.KindSeries, K2: seriesID})
-		if err != nil || len(docs) == 0 {
-			return gen.SeriesLastSeen{}, notFoundOr(err)
+		if err != nil {
+			return gen.SeriesLastSeen{}, err
+		}
+		if len(docs) == 0 {
+			if _, err := tx.GetDoc(ctx, KindSeriesIssued, seriesID); err != nil {
+				return gen.SeriesLastSeen{}, mapNotFound(err)
+			}
+			return s.emptyLastSeen(seriesID), nil
 		}
 		r, err := unmarshalDoc[SeriesRec](docs[0])
 		if err != nil {
@@ -249,19 +256,6 @@ func notFoundOr(err error) error {
 		return err
 	}
 	return notFound()
-}
-
-// RecordSeries tells billing which tenancy registry series a register series is (ids and codes only).
-func (s *Service) RecordSeries(ctx context.Context, seriesID, registrationID, code, fy string) error {
-	return s.repo.InTx(ctx, func(ctx context.Context, tx repository.Tx) error {
-		id := seriesKey(registrationID, code, fy)
-		d, err := tx.GetDoc(ctx, repository.KindSeries, id)
-		if err != nil {
-			return mapNotFound(err)
-		}
-		d.K2 = seriesID
-		return tx.SaveDoc(ctx, d)
-	})
 }
 
 // ---- exceptions ----

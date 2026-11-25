@@ -6,13 +6,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/hostryhq/go-common/events"
 	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/inbox"
+	gsync "github.com/hostryhq/go-common/sync"
 	"github.com/hostryhq/go-common/tenancy"
 
 	"github.com/hostryhq/svc-billing/internal/consumer"
@@ -30,9 +31,31 @@ func TestRealServiceContract(t *testing.T) {
 	contractenv.Run(t, s.Srv.URL, s.Tokens, s.SeedWorld, false)
 }
 
-func op(seq int64, muts ...service.Mut) []byte {
-	b, _ := json.Marshal(map[string]any{"origin": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e", "stream": "outlet:" + seed.Outlet, "seq": seq, "h": fmt.Sprint("h", seq),
-		"hlc": "00000000000000000001", "intent": "bill.finalize", "at": "2026-11-24T13:05:11.120Z", "actor": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66", "muts": muts})
+// syncEvent builds the gateway's sync.op.<namespace> event for one op as go-common's parser expects it: the canonical body
+// as a string, its hash and the envelope identity.
+func syncEvent(t *testing.T, tenant string, seq int64, intent string, muts ...service.Mut) []byte {
+	t.Helper()
+	const origin = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e"
+	stream := "outlet:" + seed.Outlet
+	raw, err := json.Marshal(map[string]any{"actor": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64", "at": "2026-11-24T13:05:11.120Z", "clk": "sync", "hlc": "01a1ee565e000000",
+		"intent": intent, "intent_v": 1, "muts": muts, "origin": origin, "ph": gsync.Genesis(origin, stream), "seq": seq, "stream": stream, "tenant_id": tenant, "v": 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	canon, err := gsync.Canonicalize(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(canon)
+	ns, _, _ := strings.Cut(intent, ".")
+	data, _ := json.Marshal(map[string]any{"origin": origin, "stream": stream, "seq": seq, "h": gsync.Hash(body), "intent": intent, "intent_v": 1, "status": "accepted",
+		"marks": []string{}, "body": body, "pii": map[string]any{}})
+	e := events.Envelope{ID: ids.New(), Type: "sync.op." + ns, V: 1, Source: "sync", TenantID: ids.ID(tenant), OutletID: ids.ID(seed.Outlet), Key: stream + "|" + origin, KeySeq: seq,
+		OccurredAt: seed.At, Data: data}
+	b, err := e.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
 	return b
 }
 
@@ -50,7 +73,8 @@ func (d *delivery) Nak(time.Duration) error { d.naks++; return nil }
 
 func envelope(t *testing.T, tenant string, typ string, data []byte) []byte {
 	t.Helper()
-	e := events.Envelope{ID: ids.New(), Type: typ, V: 1, Source: "sync", TenantID: ids.ID(tenant), OccurredAt: seed.At, Data: data}
+	source, _, _ := strings.Cut(typ, ".")
+	e := events.Envelope{ID: ids.New(), Type: typ, V: 1, Source: source, TenantID: ids.ID(tenant), OccurredAt: seed.At, Data: data}
 	b, err := e.Marshal()
 	if err != nil {
 		t.Fatal(err)
@@ -68,18 +92,25 @@ func TestBusProjectionOnPostgres(t *testing.T) {
 	}
 	sub := &inbox.Subscriber{DB: s.DB.App, Consumer: "billing.sync", Handle: consumer.Handler(s.App.Repo, s.App.Service), Now: s.Clock.Now}
 	bill := "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7101"
-	data := op(900,
-		service.Mut{E: "bill", ID: bill, K: "insert", F: map[string]any{"number": "AAA/2627/000125", "series_code": "AAA", "doc_type": "tax_invoice", "source_kind": "counter",
-			"order_type": "dine_in", "business_date": "2026-11-24", "invoice_date": "2026-11-24", "financial_year": "2627", "calc_v": 1, "ruleset_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+	ev := syncEvent(t, seed.Tenant, 900, "bill.finalize",
+		service.Mut{E: "bill", ID: bill, K: "insert", F: map[string]any{"number": "A7K/2627/000125", "series_code": "A7K", "doc_type": "tax_invoice", "source_kind": "counter",
+			"order_type": "dine_in", "business_date": "2026-11-24", "invoice_date": "2026-11-24", "financial_year": "2627", "calc_v": 1, "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
 			"price_mode": "exclusive", "gross_paise": 10000, "taxable_paise": 10000, "cgst_paise": 250, "sgst_paise": 250, "round_off_paise": 0, "total_paise": 10500, "service_charge_bp": 0}},
 		service.Mut{E: "bill_line", ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7102", K: "insert", F: map[string]any{"bill_id": bill, "line_no": 1, "item_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f5101",
 			"item_name": "Tea", "category_name": "Drinks", "qty_milli": 1000, "unit_price_paise": 10000, "net_paise": 10000, "tax_class": "fnb_standard"}},
 		service.Mut{E: "check", ID: "x", K: "set", F: map[string]any{"status": "billed"}}) // another service's entity in the same op: ignored
-	d := &delivery{data: envelope(t, seed.Tenant, "sync.op.bill", data)}
+	d := &delivery{data: ev}
 	if err := sub.Process(ctx, d); err != nil || d.acks != 1 {
 		t.Fatalf("process: %v acks %d naks %d", err, d.acks, d.naks)
 	}
-	d2 := &delivery{data: envelope(t, seed.Tenant, "sync.op.bill", data)} // same op, new event id (a bus reset)
+	// the same op under a new event id (a bus reset) changes nothing
+	var again events.Envelope
+	if err := json.Unmarshal(ev, &again); err != nil {
+		t.Fatal(err)
+	}
+	again.ID = ids.New()
+	raw2, _ := again.Marshal()
+	d2 := &delivery{data: raw2}
 	if err := sub.Process(ctx, d2); err != nil || d2.acks != 1 {
 		t.Fatal(err)
 	}
@@ -90,7 +121,7 @@ func TestBusProjectionOnPostgres(t *testing.T) {
 	if err := s.DB.Admin.QueryRowContext(ctx, `SELECT count(*) FROM outbox WHERE type = 'billing.bill.recorded' AND key = $1`, bill).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("%d bill.recorded events (%v)", n, err)
 	}
-	// the bill is served, verified against the seeded rule set 7041 (5 percent)
+	// the bill is served, verified against the seeded rule set (5 percent) (5 percent)
 	got := itest.Do(t, s.Srv.URL, "GET", "/v1/bills/"+bill, itest.Bearer(s.TenantToken(ids.ID(seed.Tenant))), nil)
 	if got.Status != 200 || got.JSON(t)["verification"].(map[string]any)["status"] != "verified" {
 		t.Fatalf("%d %s", got.Status, got.Body)

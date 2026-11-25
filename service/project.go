@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/hostryhq/go-common/ids"
+	gsync "github.com/hostryhq/go-common/sync"
 
 	"github.com/hostryhq/svc-billing/internal/gen"
 	"github.com/hostryhq/svc-billing/internal/tstamp"
@@ -19,24 +20,29 @@ func (s *Service) Project(ctx context.Context, op Op) error {
 	return s.repo.InTx(ctx, func(ctx context.Context, tx repository.Tx) error { return s.ApplyOp(ctx, tx, op) })
 }
 
-// ownedEntities are the synced entities billing owns (entities/README.md ownership table). Mutations of any other
-// entity in the same op are ignored.
-var ownedEntities = map[string]bool{
-	"bill": true, "bill_line": true, "bill_tax_line": true, "credit_note": true, "credit_note_line": true, "credit_note_tax_line": true,
-	"payment": true, "refund": true, "cash_event": true, "shift": true, "shift_close": true, "business_day": true, "day_open": true,
-	"day_close": true, "business_day_revision": true, "outlet_tax_profile": true, "billing_settings": true, "tender_kind": true,
-	"internal_consumption": true, "tax_rule_set": true, "tax_rule": true,
+// registry loads the synced-entity registry once (api-specs entities/, embedded by make gen).
+func (s *Service) registry() (*gsync.Registry, error) {
+	s.regOnce.Do(func() { s.reg, s.regErr = gen.Registry() })
+	return s.reg, s.regErr
 }
 
-// Owns reports whether any mutation of the op touches an entity billing owns.
-func Owns(op Op) bool {
+// Owns reports whether any mutation of the op touches an entity billing owns (or the op carries a void), by the
+// registry's owner field. Replicas are not billing's: nothing is replicated to billing (ADR-0014 A2.4).
+func (s *Service) Owns(op Op) bool {
+	reg, err := s.registry()
+	if err != nil {
+		return true
+	}
 	for _, m := range op.Muts {
-		if ownedEntities[m.E] {
+		if reg.RoleOf(Name, m.E) != gsync.RoleNone {
 			return true
 		}
 	}
-	return false
+	return len(op.Voids) > 0
 }
+
+// Name is the service name in the registry (entity owner) and in service tokens.
+const Name = "billing"
 
 type applyCtx struct {
 	s      *Service
@@ -45,13 +51,19 @@ type applyCtx struct {
 	outlet string
 	tenant ids.ID
 	g      map[string][]Mut
-	reason string // why the last recompute could not run (engine error code)
+	rows   map[string][]gsync.Row // rows the engine resolved for this op, by entity
+	reason string                 // why the last recompute could not run (engine error code)
 }
 
 // ApplyOp projects the billing-owned mutations of one accepted op, idempotently: an op is identified by
 // (origin, stream, seq), so a replay (redelivery, restore, bus reset) changes nothing (ADR-0011 E3).
+//
+// Two layers. The projection engine (go-common sync) records every owned mutation as a candidate and resolves the rows
+// per field policy, order-free; the configuration entities (settings, tax profile, tenders) are written from those
+// resolved rows, so concurrent edits and voids converge whatever the arrival order. The trading facts (bills, payments,
+// days) are immutable inserts that the steps below fold into the read models and aggregates once per op.
 func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
-	if !Owns(op) {
+	if !s.Owns(op) {
 		return nil
 	}
 	first, err := tx.MarkOp(ctx, op.Origin, op.Stream, op.Seq, op.Hash)
@@ -62,7 +74,25 @@ func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
 	if err != nil {
 		return err
 	}
-	ac := &applyCtx{s: s, tx: tx, op: op, outlet: op.OutletOf(), tenant: t, g: byEntity(op.Muts)}
+	reg, err := s.registry()
+	if err != nil {
+		return err
+	}
+	eng := gsync.Engine{Reg: reg, Service: Name, Store: tx.SyncStore()}
+	res, err := eng.Apply(ctx, op.syncOp())
+	if err != nil {
+		return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
+	}
+	for _, w := range res.PII {
+		if err := tx.PutPII(ctx, w); err != nil {
+			return err
+		}
+	}
+	rows := map[string][]gsync.Row{}
+	for _, r := range res.Rows {
+		rows[r.Key.Entity] = append(rows[r.Key.Entity], r)
+	}
+	ac := &applyCtx{s: s, tx: tx, op: op, outlet: op.OutletOf(), tenant: t, g: byEntity(op.Muts), rows: rows}
 	for _, step := range []func(context.Context) error{
 		ac.config, ac.ruleSets, ac.dayOpen, ac.shifts, ac.bills, ac.creditNotes, ac.payments, ac.refunds, ac.internal, ac.dayClose,
 	} {

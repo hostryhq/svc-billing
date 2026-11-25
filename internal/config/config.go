@@ -24,6 +24,9 @@ type Config struct {
 	TenantIssuer, TenantAudience, VendorIssuer, VendorAudience string
 	// OrdersURL is orders' base URL for the open-check count (empty: the numbering-mode route answers 503).
 	OrdersURL string
+	// GatewayURL is the sync gateway base URL for POST /internal/v1/emit (empty: the settings routes answer 503
+	// emit.unavailable and rule-set and revision emissions stay queued).
+	GatewayURL string
 	// ServiceKeyFile is the PEM file of this service's private signing key (service tokens to orders).
 	ServiceKeyFile string
 	// NatsURL and NatsSeedFile connect the outbox relay and the consumer to the bus; empty disables both.
@@ -53,6 +56,7 @@ func Load(lookup config.Lookup) (Config, error) {
 		VendorIssuer:   l.String("BILLING_VENDOR_ISSUER", "hostry-identity-vendor"),
 		VendorAudience: l.String("BILLING_VENDOR_AUDIENCE", "hostry-vendor"),
 		OrdersURL:      l.String("BILLING_ORDERS_URL", ""),
+		GatewayURL:     l.String("BILLING_GATEWAY_URL", ""),
 		ServiceKeyFile: l.String("BILLING_SERVICE_KEY_FILE", ""),
 		NatsURL:        l.String("NATS_URL", ""),
 		NatsSeedFile:   l.String("NATS_SEED_FILE", ""),

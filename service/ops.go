@@ -5,56 +5,59 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/hostryhq/go-common/ids"
+	gsync "github.com/hostryhq/go-common/sync"
 )
 
-// Mut is one generic mutation of a sync op (svc-sync syncproto.Mut): entity, row id, kind (insert, set, rank, del,
-// undel) and the changed fields.
-type Mut struct {
-	E    string            `json:"e"`
-	ID   string            `json:"id"`
-	K    string            `json:"k"`
-	F    map[string]any    `json:"f,omitempty"`
-	Prev map[string]string `json:"prev,omitempty"`
-}
+// Mut is one mutation of a sync op, as go-common's parser reads it: entity, row id, kind (insert, set, delta, rank,
+// del, undel), the changed fields (strings, booleans, int64 and nil only) and the predecessor stamps of a review field.
+type Mut = gsync.Mut
 
-// Op is one accepted sync op as billing receives it from the bus: the op's identity and clock, the member and device
-// that recorded it, and its mutations. billing applies only the mutations of the entities it owns and ignores the
-// rest (entities/README.md).
+// Op is one accepted sync op as billing applies it: the op's identity and clock, the member and device that recorded
+// it, and its mutations. billing applies only the mutations of the entities it owns (the registry says which) and
+// ignores the rest.
 //
-// The wire shape is the data of the gateway's sync.op.<namespace> event (ADR-0011 B10). The proof of concept
-// publishes the identity only; this projection needs the mutations too, so it reads them from the event data when
-// present (see docs/notes.md, "ADR needed: sync op event payload").
+// The consumer builds it from go-common's sync.ParseOp (OpOf), which verifies the hash and the body; tests and the
+// double build it directly.
 type Op struct {
-	Tenant string    `json:"-"`
-	Origin string    `json:"origin"`
-	Stream string    `json:"stream"`
-	Seq    int64     `json:"seq"`
-	Hash   string    `json:"h"`
-	HLC    string    `json:"hlc"`
-	Intent string    `json:"intent"`
-	At     time.Time `json:"at"`
-	Actor  string    `json:"actor"`
-	Doc    *OpDoc    `json:"doc,omitempty"`
-	Muts   []Mut     `json:"muts"`
+	Tenant string
+	Outlet string // the envelope's outlet, when the op names one
+	Origin string
+	Stream string
+	Seq    int64
+	Hash   string
+	HLC    string
+	Intent string
+	At     time.Time
+	Actor  string
+	Doc    *OpDoc
+	Muts   []Mut
+	// Voids are the ops named by sync_void records, PII the personal data beside the op (both from ParseOp).
+	Voids []gsync.OpRef
+	PII   map[string]map[string]map[string]any
 }
 
 // OpDoc is the legal document an op allocated a number for.
 type OpDoc struct {
-	Type   string `json:"type"`
-	Number string `json:"number"`
+	Type   string
+	Number string
 }
 
-// ParseOp decodes the data of a sync op event.
-func ParseOp(tenant string, data []byte) (Op, error) {
-	var op Op
-	if err := json.Unmarshal(data, &op); err != nil {
-		return Op{}, err
+// OpOf converts a parsed sync op.
+func OpOf(o *gsync.Op) Op {
+	op := Op{Tenant: o.TenantID.String(), Outlet: o.OutletID.String(), Origin: o.Ref.Origin, Stream: o.Ref.Stream, Seq: o.Ref.Seq, Hash: o.H, HLC: o.HLC,
+		Intent: o.Intent, At: o.At, Actor: o.Actor, Muts: o.Muts, Voids: o.Voids, PII: o.PII}
+	if o.Doc != nil {
+		op.Doc = &OpDoc{Type: o.Doc.Type, Number: o.Doc.Number}
 	}
-	op.Tenant = tenant
-	if op.Origin == "" || op.Stream == "" || op.Seq < 1 {
-		return Op{}, fmt.Errorf("op without identity")
-	}
-	return op, nil
+	return op
+}
+
+// syncOp is the engine's view of the op.
+func (o Op) syncOp() *gsync.Op {
+	return &gsync.Op{Ref: gsync.OpRef{Origin: o.Origin, Stream: o.Stream, Seq: o.Seq}, H: o.Hash, Intent: o.Intent, Status: "accepted", TenantID: ids.ID(o.Tenant),
+		OutletID: ids.ID(o.Outlet), Actor: o.Actor, HLC: o.HLC, At: o.At, Muts: o.Muts, Voids: o.Voids, PII: o.PII}
 }
 
 // OutletOf returns the outlet id of an "outlet:<id>" stream ("" for other streams).

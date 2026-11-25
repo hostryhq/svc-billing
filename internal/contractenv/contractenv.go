@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -24,22 +23,15 @@ import (
 	"github.com/hostryhq/svc-billing/internal/seed"
 )
 
-// ExampleUnreachable are the operations whose response example no implementation can reproduce byte for byte; each
-// is a spec problem reported to api-specs.
+// ExampleUnreachable are the operations whose response example no implementation can reproduce byte for byte; each is a
+// spec problem reported to api-specs. The example worlds are consistent since api-specs 1462fb8, so what remains is
+// listed here with its reason and checked for status, media type and schema only.
 var ExampleUnreachable = map[string]string{
 	"getBillingProjectionDigest": "the example hashes are SHA-256 of the words foo and test, not of any projection; the digest is computed",
-	"validateTaxRuleSet":         "the example says 48 vectors; the shared file has 64",
-	"signTaxRuleSet":             "the example omits content_hash, which signing stores and the master schema returns",
-	"publishTaxRuleSet":          "the example's published_at (13:09:40) differs from the examples' clock (13:05:11.120) and omits the acknowledged count",
+	"signTaxRuleSet":             "the example's content_hash is a made-up value; signing stores the real hash of the content (the shared vectors fix it only for the publish subject hash)",
 }
 
-// nextCursor matches the next_cursor lines of the spec's list examples. Every list example shows one, although the
-// world it describes holds a single page; no service can reproduce it (spec problem reported), so SpecPath serves a
-// copy of the document without those example lines.
-var nextCursor = regexp.MustCompile(`(?m)^[ \t]*next_cursor: .*\n`)
-
-// SpecPath returns the path of a patched copy of the billing OpenAPI document of the pinned api-specs (or
-// API_SPECS_DIR), with common/ beside it.
+// SpecPath returns the billing OpenAPI document of the pinned api-specs (or API_SPECS_DIR), with common/ beside it.
 func SpecPath(t testing.TB) string {
 	t.Helper()
 	root := os.Getenv("API_SPECS_DIR")
@@ -50,37 +42,12 @@ func SpecPath(t testing.TB) string {
 		}
 		root = strings.TrimSpace(string(out))
 	}
-	dst := t.TempDir()
-	for _, d := range []string{"openapi/billing/v1", "common"} {
-		if err := os.MkdirAll(filepath.Join(dst, d), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		entries, err := os.ReadDir(filepath.Join(root, d))
-		if err != nil {
-			t.Fatalf("read %s: %v", d, err)
-		}
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			b, err := os.ReadFile(filepath.Join(root, d, e.Name()))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if d != "common" {
-				b = nextCursor.ReplaceAll(b, nil)
-			}
-			if err := os.WriteFile(filepath.Join(dst, d, e.Name()), b, 0o644); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	return filepath.Join(dst, "openapi/billing/v1/openapi.yaml")
+	return filepath.Join(root, "openapi/billing/v1/openapi.yaml")
 }
 
 // transport authenticates each request of the suite for the example world: tenant operations as the example
-// organisation's owner at the example outlet (the spec's X-Outlet-Id example names no outlet of the world; spec
-// problem reported), vendor operations as a vendor user through the admin service, internal ones as tenancy.
+// organisation's owner, vendor operations as the vendor user who approves in the rule-set-signed world through the admin
+// service, internal ones as tenancy. It changes nothing else of the request.
 type transport struct {
 	tk *double.Tokens
 }
@@ -89,9 +56,6 @@ func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r = r.Clone(r.Context())
 	switch {
 	case strings.HasPrefix(r.URL.Path, "/internal/v1/vendor/"):
-		if r.Method == http.MethodPatch {
-			r.Header.Set("If-Match", `"1"`) // the spec's example tag "7" does not match its own draft (revision 1): spec problem
-		}
 		for k, vs := range t.tk.VendorHeaders("admin.taxrules.manage", "admin.taxrules.publish") {
 			r.Header.Del(k)
 			for _, v := range vs {
@@ -104,15 +68,12 @@ func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
 		}
 	default:
 		if r.URL.Path == "/v1/bills" {
-			// the spec's example filter verification=mismatch contradicts its own example answer (a verified bill): spec problem
+			// the one correction left: the spec's listBills example sends verification=mismatch and shows a verified bill
 			q := r.URL.Query()
 			q.Del("verification")
 			r.URL.RawQuery = q.Encode()
 		}
 		r.Header.Set("Authorization", "Bearer "+t.tk.TenantToken(ids.ID(seed.Tenant)))
-		if r.Header.Get("X-Outlet-Id") != "" {
-			r.Header.Set("X-Outlet-Id", seed.Outlet)
-		}
 	}
 	return http.DefaultTransport.RoundTrip(r)
 }

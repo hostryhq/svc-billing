@@ -23,6 +23,25 @@ import (
 //go:embed examples.json
 var examplesJSON []byte
 
+//go:embed vendor-grant.vectors.v1.json
+var grantVectorsJSON []byte
+
+// GrantVectors returns the shared vendor approval grant vectors (api-specs common/vendor-grant.vectors.v1.json).
+func GrantVectors() []byte { return grantVectorsJSON }
+
+// ExampleGrantToken is the example grant the contract sends in Hostry-Vendor-Approval (api-specs common/vendor.yaml).
+func ExampleGrantToken() string {
+	var v struct {
+		ExampleGrant struct {
+			Token string `json:"token"`
+		} `json:"example_grant"`
+	}
+	if err := json.Unmarshal(grantVectorsJSON, &v); err != nil {
+		panic(err)
+	}
+	return v.ExampleGrant.Token
+}
+
 // The ids of the example world.
 const (
 	Tenant       = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a60"
@@ -31,10 +50,21 @@ const (
 	Registration = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6b"
 	SeriesID     = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6c"
 	Bill         = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001"
+	// GapID is the open gap of the gap-open world (restaurant world entry "gap").
+	GapID = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f70b1"
 )
 
 // At is the instant of the examples.
 var At = time.Date(2026, 11, 24, 13, 5, 11, 120_000_000, time.UTC)
+
+// WorldAt is the instant a world is at: the examples' instant, and four minutes later in the rule-set-signed world, where
+// the version was created at At and is published at 13:09:11.120 (its publication example).
+func WorldAt(world string) time.Time {
+	if world == "rule-set-signed" {
+		return At.Add(4 * time.Minute)
+	}
+	return At
+}
 
 type example struct {
 	World    string          `json:"world"`
@@ -65,7 +95,7 @@ func items[T any](ex map[string]example, op string) []T {
 }
 
 // Worlds are the world names of the contract.
-var Worlds = []string{"base", "payments-exceed", "rule-set-draft", "rule-set-signed"}
+var Worlds = []string{"base", "payments-exceed", "gap-open", "late-revision", "rule-set-draft", "rule-set-signed"}
 
 // Apply stores the named world for the example organisation.
 func Apply(ctx context.Context, repo repository.Repository, world string) error {
@@ -104,7 +134,7 @@ func base(ctx context.Context, tx repository.Tx, ex map[string]example, world st
 	for i := range d.Lines {
 		lineIDs = append(lineIDs, fmt.Sprintf("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f60%02d", 21+i))
 	}
-	rec := service.BillRec{Detail: d, Calc: service.BillCalc{SeriesCode: "AAA", FinancialYear: "2627", GrossPaise: 48000 * 0, TotalPaise: d.Total.AmountPaise,
+	rec := service.BillRec{Detail: d, Calc: service.BillCalc{SeriesCode: "A7K", FinancialYear: "2627", GrossPaise: 48000 * 0, TotalPaise: d.Total.AmountPaise,
 		RoundOffPaise: d.RoundOff.AmountPaise, LineIDs: lineIDs}}
 	for _, t := range d.TaxLines {
 		rec.Calc.TaxablePaise += t.Taxable.AmountPaise
@@ -124,7 +154,7 @@ func base(ctx context.Context, tx repository.Tx, ex map[string]example, world st
 	}
 	cn := resp[gen.CreditNote](ex, "getCreditNote")
 	if err := put(ctx, tx, repository.Doc{Kind: repository.KindCreditNote, ID: cn.Id, Outlet: Outlet, Date: cn.BusinessDate.String(), Sort: cn.CreatedAt.String(), K1: cn.BillId},
-		service.CreditRec{Note: cn, Calc: service.CreditCalc{SeriesCode: "AAB", FinancialYear: "2627", TotalPaise: cn.Total.AmountPaise}}); err != nil {
+		service.CreditRec{Note: cn, Calc: service.CreditCalc{SeriesCode: "A7M", FinancialYear: "2627", TotalPaise: cn.Total.AmountPaise}}); err != nil {
 		return err
 	}
 	for _, r := range items[gen.Refund](ex, "listRefunds") {
@@ -143,12 +173,17 @@ func base(ctx context.Context, tx repository.Tx, ex map[string]example, world st
 		}
 	}
 	day := resp[gen.BusinessDay](ex, "getBusinessDay")
+	if world == "late-revision" {
+		day.RevisionCount, day.LateDocumentCount = 1, 1
+	}
 	if err := put(ctx, tx, repository.Doc{Kind: repository.KindBusinessDay, ID: day.Id, Outlet: Outlet, Date: day.BusinessDate.String(), Sort: day.BusinessDate.String(), K1: string(day.Status)}, day); err != nil {
 		return err
 	}
-	for _, r := range items[gen.BusinessDayRevision](ex, "listBusinessDayRevisions") {
-		if err := put(ctx, tx, repository.Doc{Kind: repository.KindRevision, ID: r.Id, Outlet: Outlet, Date: day.BusinessDate.String(), Sort: fmt.Sprint(1000000 + r.Revision), K1: r.BusinessDayId, K2: "emitted"}, r); err != nil {
-			return err
+	if world == "late-revision" {
+		for _, r := range items[gen.BusinessDayRevision](ex, "listBusinessDayRevisions") {
+			if err := put(ctx, tx, repository.Doc{Kind: repository.KindRevision, ID: r.Id, Outlet: Outlet, Date: day.BusinessDate.String(), Sort: fmt.Sprint(1000000 + r.Revision), K1: r.BusinessDayId}, r); err != nil {
+				return err
+			}
 		}
 	}
 	// register and gaps
@@ -159,10 +194,12 @@ func base(ctx context.Context, tx repository.Tx, ex map[string]example, world st
 			return err
 		}
 	}
-	for i, g := range items[gen.RegisterGap](ex, "listDocumentGaps") {
-		key := fmt.Sprintf("%s|%s|%s", g.TaxRegistrationId, g.SeriesCode, g.FinancialYear)
-		if err := put(ctx, tx, repository.Doc{Kind: repository.KindGap, ID: fmt.Sprintf("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f70c%d", i+1), Sort: g.DetectedAt.String(), K1: key, K2: string(g.Status)}, g); err != nil {
-			return err
+	if world == "gap-open" {
+		for _, g := range items[gen.RegisterGap](ex, "listDocumentGaps") {
+			key := fmt.Sprintf("%s|%s|%s", g.TaxRegistrationId, g.SeriesCode, g.FinancialYear)
+			if err := put(ctx, tx, repository.Doc{Kind: repository.KindGap, ID: GapID, Sort: g.DetectedAt.String(), K1: key, K2: string(g.Status)}, g); err != nil {
+				return err
+			}
 		}
 	}
 	// configuration and the rule set in force
@@ -258,7 +295,7 @@ func global(ctx context.Context, tx repository.GlobalTx, ex map[string]example, 
 	// version 1, published, in force
 	rs := items[gen.TaxRuleSet](ex, "listTaxRuleSets")[0]
 	h := rs.ContentHash
-	v1 := gen.TaxRuleSetMaster{Id: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041", Version: 1, Revision: 1, Name: rs.Name, EffectiveDate: rs.EffectiveDate, CalcV: 1,
+	v1 := gen.TaxRuleSetMaster{Id: rs.Id, Version: 1, Revision: 1, Name: rs.Name, EffectiveDate: rs.EffectiveDate, CalcV: 1,
 		State: gen.TaxRuleSetMasterStatePublished, ReviewStatus: gen.TaxRuleSetMasterReviewStatusUnreviewed, ContentHash: &h, Rules: rs.Rules, CreatedAt: tstamp.Of(At), PublishedAt: tstamp.Ptr(At)}
 	if err := putMaster(ctx, tx, v1); err != nil {
 		return err
@@ -267,10 +304,8 @@ func global(ctx context.Context, tx repository.GlobalTx, ex map[string]example, 
 	case "rule-set-draft":
 		return putMaster(ctx, tx, resp[gen.TaxRuleSetMaster](ex, "getTaxRuleSetMaster"))
 	case "rule-set-signed":
-		m := resp[gen.TaxRuleSetMaster](ex, "signTaxRuleSet")
-		hh := service.ContentHash(m)
-		m.ContentHash = &hh
-		return putMaster(ctx, tx, m)
+		// the signed master as the example world states it, content hash included
+		return putMaster(ctx, tx, resp[gen.TaxRuleSetMaster](ex, "signTaxRuleSet"))
 	}
 	return nil
 }
@@ -283,10 +318,22 @@ func putMaster(ctx context.Context, tx repository.GlobalTx, m gen.TaxRuleSetMast
 	return tx.PutMaster(ctx, repository.Master{ID: m.Id, Version: m.Version, Revision: m.Revision, State: string(m.State), Created: m.CreatedAt.Time, Body: b})
 }
 
-// PublishGrantSubject is the subject hash the example grant must carry for the example rule set 7042 in the
-// rule-set-signed world.
-func PublishGrantSubject() string {
-	ex := examples()
-	m := resp[gen.TaxRuleSetMaster](ex, "signTaxRuleSet")
-	return service.PublishSubjectHash(m.Id, service.ContentHash(m), m.EffectiveDate.String())
+// ExampleApprover is the vendor user who approves in the rule-set-signed world (a second platform admin).
+const ExampleApprover = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a78"
+
+// ExamplePublishGrant is the grant the double accepts for the example rule set of the rule-set-signed world: the
+// claims of the shared vector (api-specs common/vendor-grant.vectors.v1.json) for the publish kind. The signature
+// check is the verifier's (an interface); the service recomputes the subject hash from its own stored state.
+func ExamplePublishGrant() service.Grant {
+	m := resp[gen.TaxRuleSetMaster](examples(), "signTaxRuleSet")
+	return service.Grant{ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4ab2", ApprovalID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6d", Kind: service.GrantKindPublish,
+		Realm: "vendor", Audience: "billing", Type: "vendor_approval", Requester: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66", Approver: ExampleApprover,
+		SubjectHash: service.PublishSubjectHash(m.Id, deref(m.ContentHash), m.EffectiveDate.String()), ExpiresAt: At.Add(5 * time.Minute)}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

@@ -23,6 +23,7 @@ import (
 
 	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/bus"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/inbox"
 	"github.com/hostryhq/go-common/logx"
 	"github.com/hostryhq/go-common/outbox"
@@ -164,18 +165,30 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		}
 		orders = &ordersclient.Client{BaseURL: cfg.OrdersURL, Signer: signer}
 	}
+	var emitter emit.Emitter
+	if cfg.GatewayURL != "" {
+		signer, err := loadSigner(cfg)
+		if err != nil {
+			return fmt.Errorf("service signing key: %w", err)
+		}
+		// A service token carries no tenant (the tenant is a body field of the emit); tokens are short-lived, minted per call.
+		emitter = &emit.Client{BaseURL: cfg.GatewayURL, Token: func(context.Context) (string, error) { return signer.Sign("sync", "") }}
+	} else {
+		log.Warn("gateway disabled: BILLING_GATEWAY_URL not set; settings routes answer 503 emit.unavailable and emissions stay queued")
+	}
 	a, err := app.Build(app.Options{
-		AppDB: appDB, GlobalDB: globalDB, Log: log, Orders: orders, Grants: &grant.Verifier{Keys: grantKeys}, PublishLead: cfg.PublishLead,
+		AppDB: appDB, GlobalDB: globalDB, Log: log, Orders: orders, Emitter: emitter, Grants: &grant.Verifier{Keys: grantKeys}, PublishLead: cfg.PublishLead,
 		Tenant:   &auth.Verifier{Keys: tenantKeys, Issuer: cfg.TenantIssuer, Audience: cfg.TenantAudience, Realm: auth.RealmTenant},
 		Vendor:   &auth.Verifier{Keys: vendorKeys, Issuer: cfg.VendorIssuer, Audience: cfg.VendorAudience, Realm: auth.RealmVendor},
 		Services: &auth.ServiceVerifier{Registry: auth.NewStaticKeySet(svcDoc), Self: cfg.SelfName},
-		// Emitter: the gateway's emit API has no wire contract yet (docs/notes.md); until it has, the settings routes
-		// answer 503 emit.unavailable and rule-set emissions stay queued.
 	})
 	if err != nil {
 		return err
 	}
 	go sweep(ctx, a.Service, log)
+	if a.Queue != nil {
+		go func() { _ = a.Queue.Run(ctx, 5*time.Second) }()
+	}
 	if cfg.NatsURL != "" && cfg.RelayDSN != "" {
 		go relay(ctx, cfg, log)
 		go consume(ctx, cfg, a, appDB, log)
@@ -196,8 +209,8 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 }
 
-// sweep runs the periodic work: sealing quiet batches of late documents into Z revisions and delivering queued
-// rule-set emissions.
+// sweep runs the periodic work: sealing quiet batches of late documents into Z revisions (their emission is queued in
+// the same transaction and drained by the emit queue worker).
 func sweep(ctx context.Context, svc *service.Service, log *slog.Logger) {
 	t := time.NewTicker(10 * time.Second)
 	defer t.Stop()
@@ -210,11 +223,6 @@ func sweep(ctx context.Context, svc *service.Service, log *slog.Logger) {
 				log.Error("revision sweep failed", "error", err)
 			} else if n > 0 {
 				log.Info("Z revisions sealed", "count", n)
-			}
-			if n, err := svc.DeliverEmissions(ctx, 100); err != nil {
-				log.Error("rule-set emission sweep failed", "error", err)
-			} else if n > 0 {
-				log.Info("rule sets emitted", "count", n)
 			}
 		}
 	}
@@ -244,7 +252,8 @@ func relay(ctx context.Context, cfg config.Config, log *slog.Logger) {
 	}
 }
 
-// consume runs the durable consumers of the publishers billing subscribes to: sync (op projection) and tenancy.
+// consume runs the durable consumers of the publishers billing subscribes to: sync (op projection, pii erasure), tenancy
+// (organisations, outlets, series) and identity (a revoked device's drain statement).
 func consume(ctx context.Context, cfg config.Config, a *app.App, db *sql.DB, log *slog.Logger) {
 	nc, err := bus.Connect(cfg.NatsURL, "billing", cfg.NatsSeedFile)
 	if err != nil {
@@ -252,7 +261,7 @@ func consume(ctx context.Context, cfg config.Config, a *app.App, db *sql.DB, log
 		return
 	}
 	defer nc.Close()
-	for _, publisher := range []string{"sync", "tenancy"} {
+	for _, publisher := range []string{"sync", "tenancy", "identity"} {
 		c, err := bus.BindConsumer(ctx, nc, publisher, "billing")
 		if err != nil {
 			log.Error("consumer: bind", "publisher", publisher, "error", err)

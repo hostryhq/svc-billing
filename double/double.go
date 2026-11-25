@@ -22,6 +22,7 @@ import (
 	"github.com/hostryhq/go-common/clock"
 	"github.com/hostryhq/go-common/events"
 	"github.com/hostryhq/go-common/ids"
+	"github.com/hostryhq/go-common/testkit"
 
 	"github.com/hostryhq/svc-billing/api"
 	"github.com/hostryhq/svc-billing/internal/gen"
@@ -41,7 +42,7 @@ type Config struct {
 	IDs *ids.Generator
 	// OpenChecks answers the open-check count of an outlet (default: none open).
 	OpenChecks service.OpenChecks
-	// Grants verifies vendor approval grants (default: Grants, which knows the example grant).
+	// Grants is the signature check of vendor approval grants (default: Grants, which knows the example grant).
 	Grants service.GrantVerifier
 }
 
@@ -55,10 +56,12 @@ type Fault struct {
 
 // Double is the running double.
 type Double struct {
-	Store   *mem.Store
-	Svc     *service.Service
-	Emitted *Emitter
+	Store *mem.Store
+	Svc   *service.Service
+	// Gateway is the in-process sync gateway: the emit target of the service and of the emission drain.
+	Gateway *Gateway
 	idq     *idQueue
+	fake    *testkit.FakeClock // the default clock, which SeedWorld sets to the instant of the world
 	h       http.Handler
 	mu      sync.Mutex
 	fault   []Fault
@@ -70,8 +73,11 @@ func New(cfg Config) (*Double, error) {
 	if err != nil {
 		return nil, err
 	}
+	var fake *testkit.FakeClock
 	if cfg.Clock == nil {
-		cfg.Clock = clock.Func(func() time.Time { return seed.At })
+		fake = testkit.NewClock()
+		fake.Set(seed.At)
+		cfg.Clock = fake
 	}
 	if cfg.IDs == nil {
 		cfg.IDs = ids.NewGenerator(cfg.Clock.Now, &counter{})
@@ -83,11 +89,11 @@ func New(cfg Config) (*Double, error) {
 		cfg.Grants = &Grants{}
 	}
 	store := mem.New()
-	d := &Double{Store: store, idq: newIDQueue()}
-	d.Emitted = &Emitter{clock: cfg.Clock}
+	d := &Double{Store: store, idq: newIDQueue(), fake: fake}
+	d.Gateway = NewGateway(cfg.Clock)
 	d.Svc = service.New(store, service.Options{Clock: cfg.Clock, IDs: cfg.IDs, Log: slog.New(slog.DiscardHandler), Orders: cfg.OpenChecks, Grants: cfg.Grants,
-		Emitter: d.Emitted, NewID: d.idq.next})
-	d.Emitted.svc = d.Svc
+		Emitter: d.Gateway, NewID: d.idq.next})
+	d.Gateway.SetService(d.Svc)
 	svc := d.Svc
 	guard := &auth.Guard{Catalogue: cat, Tenant: cfg.Tenant, Vendor: cfg.Vendor, Services: cfg.Services, Audit: noAudit{}, PlatformAudit: noAudit{}, Log: slog.New(slog.DiscardHandler)}
 	d.h = api.New(api.Config{Service: svc, Guard: guard, Clock: cfg.Clock, Log: slog.New(slog.DiscardHandler)})
@@ -104,7 +110,7 @@ func (c *counter) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// idQueue serves the server-generated ids of the spec examples in order (the draft 7042, then the revision 7071),
+// idQueue serves the server-generated ids of the spec examples in order (the draft rule set 72bd, then the revision 7071),
 // then falls back to counters.
 type idQueue struct {
 	mu    sync.Mutex
@@ -115,7 +121,7 @@ type idQueue struct {
 func newIDQueue() *idQueue { q := &idQueue{}; q.reset(); return q }
 
 func (q *idQueue) reset() {
-	q.queue = []string{"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7042", "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7071"}
+	q.queue = []string{"72bdd3f5-68b5-59b0-8e62-2075a1f43c47", "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7071"}
 	q.n = 0
 }
 
@@ -135,11 +141,20 @@ func (q *idQueue) next() string {
 // (info.x-example-worlds). It is the SeedWorld hook of the shared contract suite.
 func (d *Double) SeedWorld(ctx context.Context, world string) error {
 	d.Store.Reset()
-	d.Emitted.Reset()
+	d.Gateway.Reset()
+	if d.fake != nil {
+		d.fake.Set(seed.WorldAt(world))
+	}
 	d.idq.mu.Lock()
 	d.idq.reset()
 	d.idq.mu.Unlock()
 	return seed.Apply(ctx, d.Store, world)
+}
+
+// DrainEmits sends the queued emissions (rule sets, Z revisions) to the gateway, as the emit_queue worker does on
+// Postgres, and returns how many were sent. A caller of the double triggers it; nothing runs in the background.
+func (d *Double) DrainEmits(ctx context.Context) (int, error) {
+	return d.Store.DrainEmits(ctx, d.Gateway)
 }
 
 // Events returns the events the double published to its outbox.

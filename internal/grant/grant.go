@@ -1,7 +1,9 @@
-// Package grant verifies the vendor approval grant of ADR-0014 A1.3: a compact ES256 JWS signed by identity, single
-// use, five minutes. The claim names are provisional (api-specs common/vendor.yaml fixes the meaning, not the keys;
-// see docs/notes.md): jti, approval_id, kind, requester, approver, subject_hash, exp. Single use is enforced by the
-// service in the action's own transaction (UseGrant); this package checks signature, type and expiry.
+// Package grant checks the signature of the vendor approval grant of ADR-0014 A2.6: a compact ES256 JWS signed by
+// identity's vendor-realm key (kid in the header), single use, five minutes. It is the signature check behind
+// service.GrantVerifier and nothing more; go-auth is to own issue and verification (and SubjectHash), and this package
+// goes away then (ADR-0014 "Changes needed elsewhere": svc-billing drops internal/grant). Every claim check after the
+// signature (typ, realm, aud, exp, kind, org, approver, subject hash, single use) is the service's own, in
+// service.PublishTaxRuleSet, so it does not change with the verifier.
 package grant
 
 import (
@@ -15,15 +17,13 @@ import (
 	"time"
 
 	"github.com/hostryhq/go-auth"
-	"github.com/hostryhq/go-common/clock"
 
 	"github.com/hostryhq/svc-billing/service"
 )
 
 // Verifier checks grants against identity's vendor-realm key set.
 type Verifier struct {
-	Keys  auth.KeySet
-	Clock clock.Clock
+	Keys auth.KeySet
 }
 
 var _ service.GrantVerifier = (*Verifier)(nil)
@@ -31,21 +31,24 @@ var _ service.GrantVerifier = (*Verifier)(nil)
 type header struct {
 	Alg string `json:"alg"`
 	Kid string `json:"kid"`
-	Typ string `json:"typ"`
 }
 
+// claims are the A2.6 item 1 names (api-specs common/vendor.yaml VendorApprovalGrantClaims); unknown claims are ignored.
 type claims struct {
 	JTI         string `json:"jti"`
+	Realm       string `json:"realm"`
+	Audience    string `json:"aud"`
 	Type        string `json:"typ"`
 	ApprovalID  string `json:"approval_id"`
 	Kind        string `json:"kind"`
+	Org         string `json:"org"`
 	Requester   string `json:"requester"`
 	Approver    string `json:"approver"`
 	SubjectHash string `json:"subject_hash"`
 	ExpiresAt   int64  `json:"exp"`
 }
 
-// Verify implements service.GrantVerifier.
+// Verify implements service.GrantVerifier: the signature and key id, then the claims as written.
 func (v *Verifier) Verify(_ context.Context, raw string) (service.Grant, error) {
 	parts := strings.Split(raw, ".")
 	if len(parts) != 3 {
@@ -58,7 +61,7 @@ func (v *Verifier) Verify(_ context.Context, raw string) (service.Grant, error) 
 		return service.Grant{}, service.ErrGrantInvalid
 	}
 	var h header
-	if json.Unmarshal(hb, &h) != nil || h.Alg != "ES256" {
+	if json.Unmarshal(hb, &h) != nil || h.Alg != "ES256" || h.Kid == "" {
 		return service.Grant{}, service.ErrGrantInvalid
 	}
 	key, err := v.Keys.Key(h.Kid)
@@ -70,16 +73,9 @@ func (v *Verifier) Verify(_ context.Context, raw string) (service.Grant, error) 
 		return service.Grant{}, service.ErrGrantInvalid
 	}
 	var c claims
-	if json.Unmarshal(cb, &c) != nil || c.Type != "vendor_approval" || c.JTI == "" {
+	if json.Unmarshal(cb, &c) != nil || c.JTI == "" {
 		return service.Grant{}, service.ErrGrantInvalid
 	}
-	g := service.Grant{ID: c.JTI, ApprovalID: c.ApprovalID, Kind: c.Kind, Requester: c.Requester, Approver: c.Approver, SubjectHash: c.SubjectHash, ExpiresAt: time.Unix(c.ExpiresAt, 0)}
-	now := time.Now()
-	if v.Clock != nil {
-		now = v.Clock.Now()
-	}
-	if now.After(g.ExpiresAt) {
-		return g, service.ErrGrantExpired
-	}
-	return g, nil
+	return service.Grant{ID: c.JTI, ApprovalID: c.ApprovalID, Kind: c.Kind, Type: c.Type, Realm: c.Realm, Audience: c.Audience, Org: c.Org,
+		Requester: c.Requester, Approver: c.Approver, SubjectHash: c.SubjectHash, ExpiresAt: time.Unix(c.ExpiresAt, 0)}, nil
 }

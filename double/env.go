@@ -7,6 +7,8 @@ import (
 	"github.com/hostryhq/go-auth/authtest"
 	"github.com/hostryhq/go-common/clock"
 	"github.com/hostryhq/go-common/ids"
+
+	"github.com/hostryhq/svc-billing/internal/seed"
 )
 
 // Tokens are the test issuers a service under test trusts, with helpers that mint the credentials each kind of
@@ -62,7 +64,7 @@ func (e *Tokens) PinToken(tenant ids.ID, grants ...auth.Grant) string {
 // permissions and the admin service token.
 func (e *Tokens) VendorHeaders(perms ...string) http.Header {
 	h := http.Header{}
-	h.Set("Authorization", "Bearer "+e.VendorIssuer.Mint(authtest.Spec{Type: auth.TypeUser, Subject: "vendor-user-1", Grants: authtest.Grants(nil, perms...)}))
+	h.Set("Authorization", "Bearer "+e.VendorIssuer.Mint(authtest.Spec{Type: auth.TypeUser, Subject: seed.ExampleApprover, Grants: authtest.Grants(nil, perms...)}))
 	tok, err := e.Registry.Signer("admin").Sign("billing", "")
 	if err != nil {
 		panic(err)

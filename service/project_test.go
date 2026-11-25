@@ -11,6 +11,7 @@ import (
 	"github.com/hostryhq/go-auth/authtest"
 	"github.com/hostryhq/go-common/apperr"
 	"github.com/hostryhq/go-common/clock"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/tenancy"
 	"github.com/hostryhq/go-common/testkit"
@@ -73,12 +74,32 @@ func (f *fixture) apply(tenant, origin, stream string, muts ...service.Mut) serv
 	f.t.Helper()
 	k := tenant + origin + stream
 	f.seq[k]++
-	op := service.Op{Tenant: tenant, Origin: origin, Stream: stream, Seq: f.seq[k], Hash: fmt.Sprintf("h%d", f.seq[k]), HLC: fmt.Sprintf("%020d", f.clk.Now().UnixMilli()),
-		Intent: "test", At: f.clk.Now(), Actor: member, Muts: muts}
+	op := service.Op{Tenant: tenant, Origin: origin, Stream: stream, Seq: f.seq[k], Hash: fmt.Sprintf("h%d", f.seq[k]), HLC: fmt.Sprintf("%016x", f.clk.Now().UnixMilli()<<16),
+		Intent: "test", At: f.clk.Now(), Actor: member, Muts: int64s(muts)}
 	if err := f.svc.Project(f.sys(tenant), op); err != nil {
 		f.t.Fatal(err)
 	}
 	return op
+}
+
+// int64s turns the integers of the test data into int64, as sync.ParseOp delivers them (strings, booleans, int64 and
+// nil only).
+func int64s(muts []service.Mut) []service.Mut {
+	out := make([]service.Mut, len(muts))
+	for i, m := range muts {
+		out[i] = m
+		if m.F == nil {
+			continue
+		}
+		out[i].F = map[string]any{}
+		for k, v := range m.F {
+			if n, ok := v.(int); ok {
+				v = int64(n)
+			}
+			out[i].F[k] = v
+		}
+	}
+	return out
 }
 
 func (f *fixture) ruleSetMuts(tenant string, version int, effective string, half int) []service.Mut {
@@ -406,11 +427,33 @@ type fakeOrders struct{ n int }
 
 func (o fakeOrders) OpenCheckCount(context.Context, string) (int, error) { return o.n, nil }
 
-type fakeEmitter struct{ ops []service.EmitOp }
+// fakeEmitter is the gateway as the service and the queue see it: it stores every op once per (tenant, key).
+type fakeEmitter struct {
+	ops     []emit.Op
+	tenants []string
+	fail    error
+}
 
-func (e *fakeEmitter) Emit(_ context.Context, op service.EmitOp) (string, error) {
-	e.ops = append(e.ops, op)
-	return fmt.Sprintf("cloud-1/%s/%d", op.Stream, len(e.ops)), nil
+func (e *fakeEmitter) Emit(_ context.Context, tenant ids.ID, ops []emit.Op) ([]emit.Result, error) {
+	if e.fail != nil {
+		return nil, e.fail
+	}
+	var res []emit.Result
+	for _, o := range ops {
+		seq := int64(0)
+		for i, x := range e.ops {
+			if e.tenants[i] == tenant.String() && x.Key == o.Key {
+				seq = int64(i + 1)
+			}
+		}
+		replayed := seq != 0
+		if !replayed {
+			e.ops, e.tenants = append(e.ops, o), append(e.tenants, tenant.String())
+			seq = int64(len(e.ops))
+		}
+		res = append(res, emit.Result{Key: o.Key, Origin: "cloud-1", Stream: o.Stream, Seq: seq, Replayed: replayed})
+	}
+	return res, nil
 }
 
 func TestNumberingModeIsRefusedWithOpenChecks(t *testing.T) {
@@ -424,7 +467,7 @@ func TestNumberingModeIsRefusedWithOpenChecks(t *testing.T) {
 	}
 	svc = service.New(f.store, service.Options{Clock: f.clk, Log: slog.New(slog.DiscardHandler), Orders: fakeOrders{}, Emitter: em})
 	ch, err := svc.SetNumberingMode(f.as(tenantA), outletA, "print")
-	if err != nil || ch.OpId == "" || len(em.ops) != 1 || em.ops[0].Muts[0].F["number_at"] != "print" {
+	if err != nil || ch.OpId == "" || len(em.ops) != 1 || em.ops[0].Muts[0].F["number_at"] != "print" || em.ops[0].Intent != "settings.numbering.set" {
 		t.Fatalf("%+v %v ops %d", ch, err, len(em.ops))
 	}
 }

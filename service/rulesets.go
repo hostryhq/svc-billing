@@ -12,7 +12,9 @@ import (
 
 	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/apperr"
+	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/ids"
+	gsync "github.com/hostryhq/go-common/sync"
 	"github.com/hostryhq/go-common/tenancy"
 
 	"github.com/hostryhq/svc-billing/internal/gen"
@@ -21,34 +23,45 @@ import (
 	"github.com/hostryhq/svc-billing/tax"
 )
 
-// ---- the vendor approval grant (ADR-0014 A1.3) ----
+// ---- the vendor approval grant (ADR-0014 A1.3, A2.6) ----
 
-// Grant is the verified content of a vendor approval grant: signed and single-use, issued by identity at the second
-// person's approval. The claim names are provisional (api-specs common/vendor.yaml fixes the meaning, not the keys).
+// GrantKindPublish is the grant kind this service executes.
+const GrantKindPublish = "tax_rule_set_publish"
+
+// Grant is the content of a vendor approval grant after its signature was verified (claim names per A2.6 item 1:
+// api-specs common/vendor.yaml VendorApprovalGrantClaims). The service checks every other claim itself.
 type Grant struct {
-	ID          string
+	ID          string // jti
 	ApprovalID  string
 	Kind        string
+	Type        string // typ, always vendor_approval
+	Realm       string // always vendor
+	Audience    string // aud, the executing service
+	Org         string // absent (empty) for tax_rule_set_publish
 	Requester   string
 	Approver    string
 	SubjectHash string
 	ExpiresAt   time.Time
 }
 
-// Errors of a grant check; the service maps them to 403 grant.expired and grant.required.
+// Errors of a grant check; the service maps them to 403 grant.invalid, grant.expired and grant.required.
 var (
 	ErrGrantInvalid = errors.New("service: grant invalid")
 	ErrGrantExpired = errors.New("service: grant expired")
 )
 
-// GrantVerifier checks a grant's signature and expiry.
+// GrantVerifier checks a grant's signature and key id (A2.6 item 4, first check) and returns its claims. go-auth is to
+// own the implementation (issue, verify, subject hash); until then svc-billing's internal/grant implements it. Every
+// check after the signature is the service's, below.
 type GrantVerifier interface {
 	Verify(ctx context.Context, raw string) (Grant, error)
 }
 
-// PublishSubjectHash is the subject hash of a tax_rule_set_publish grant: rule-set id, content hash and effective date.
+// PublishSubjectHash is the subject hash of a tax_rule_set_publish grant (A2.6 item 2): the lower-case hex SHA-256 of
+// "tax_rule_set_publish\n<rule-set id>\n<content hash>\n<effective date>", no trailing newline. The service computes it
+// from its own stored version, never from a value the caller sends.
 func PublishSubjectHash(ruleSetID, contentHash, effectiveDate string) string {
-	sum := sha256.Sum256([]byte("tax_rule_set_publish\n" + ruleSetID + "\n" + contentHash + "\n" + effectiveDate))
+	sum := sha256.Sum256([]byte(GrantKindPublish + "\n" + ruleSetID + "\n" + contentHash + "\n" + effectiveDate))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -325,13 +338,24 @@ func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (g
 		return gen.TaxRuleSetMaster{}, grantErr("grant.required")
 	}
 	g, err := s.grants.Verify(ctx, rawGrant)
-	switch {
-	case errors.Is(err, ErrGrantExpired):
-		return gen.TaxRuleSetMaster{}, grantErr("grant.expired")
-	case err != nil:
-		return gen.TaxRuleSetMaster{}, grantErr("grant.required")
+	if err != nil {
+		if errors.Is(err, ErrGrantExpired) {
+			return gen.TaxRuleSetMaster{}, grantErr("grant.expired")
+		}
+		return gen.TaxRuleSetMaster{}, grantErr("grant.invalid")
 	}
 	p, _ := auth.PrincipalFrom(ctx)
+	now := s.clock.Now()
+	// A2.6 item 4, in order: typ, realm and aud (this service); exp; kind; org (none for a rule set); approver (the
+	// bearer's subject). The subject hash follows inside the transaction, against the stored version.
+	switch {
+	case g.Type != "vendor_approval" || g.Realm != "vendor" || g.Audience != "billing":
+		return gen.TaxRuleSetMaster{}, grantErr("grant.invalid")
+	case !g.ExpiresAt.IsZero() && now.After(g.ExpiresAt):
+		return gen.TaxRuleSetMaster{}, grantErr("grant.expired")
+	case g.Kind != GrantKindPublish || g.Org != "" || g.Approver == "" || p.Subject != g.Approver:
+		return gen.TaxRuleSetMaster{}, grantErr("grant.invalid")
+	}
 	return runGlobal(ctx, s, func(ctx context.Context, tx repository.GlobalTx) (gen.TaxRuleSetMaster, error) {
 		m, err := s.getMaster(ctx, tx, id)
 		if err != nil {
@@ -340,13 +364,8 @@ func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (g
 		if m.State != gen.TaxRuleSetMasterStateSigned {
 			return m, apperr.New(apperr.Conflict, "not_signed", "only a signed version can be published")
 		}
-		if g.Kind != "tax_rule_set_publish" || g.Requester == g.Approver || (p.Subject != "" && p.Subject != g.Approver) ||
-			g.SubjectHash != PublishSubjectHash(m.Id, deref(m.ContentHash), m.EffectiveDate.String()) {
+		if g.Requester == g.Approver || g.SubjectHash != PublishSubjectHash(m.Id, deref(m.ContentHash), m.EffectiveDate.String()) {
 			return m, grantErr("grant.subject_mismatch")
-		}
-		now := s.clock.Now()
-		if !g.ExpiresAt.IsZero() && now.After(g.ExpiresAt) {
-			return m, grantErr("grant.expired")
 		}
 		if m.EffectiveDate.Time.Before(now.Add(s.lead).Truncate(24 * time.Hour)) {
 			return m, validation("effective_date_too_soon", "the effective date is closer than the lead time", field("effective_date", "too_soon"))
@@ -367,7 +386,7 @@ func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (g
 			return m, err
 		}
 		for _, t := range tenants {
-			if err := tx.QueueEmission(ctx, m.Id, t); err != nil {
+			if err := s.queueRuleSet(ctx, tx, m, t, "support:"+p.Subject, g.ApprovalID, now); err != nil {
 				return m, err
 			}
 		}
@@ -379,26 +398,32 @@ func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (g
 		if err := s.publishPlatform(ctx, tx, "billing.vendor_access.recorded", g.ApprovalID, p.Subject, data); err != nil {
 			return m, err
 		}
-		return s.withCounts(ctx, tx, m)
+		out, err := s.withCounts(ctx, tx, m)
+		// the emissions were queued just now: none is acknowledged yet, so the publication does not state a count of them
+		out.OrganisationsAcknowledged = nil
+		return out, err
 	})
 }
 
 // ---- emission ----
 
-func emitMuts(tenant string, m gen.TaxRuleSetMaster) (string, []Mut) {
+// ruleSetMuts are the mutations that carry one published version to an organisation's tenant stream: the tax_rule_set
+// row and one tax_rule row per rule, with ids derived from their natural keys so a repeated emit converges on the same
+// rows (entities/restaurant/tax_rule_set.yaml, tax_rule.yaml).
+func ruleSetMuts(tenant string, m gen.TaxRuleSetMaster) []Mut {
 	rowID := RuleSetRowID(tenant, m.Version)
-	muts := []Mut{{E: "tax_rule_set", ID: rowID, K: "insert", F: map[string]any{"version": m.Version, "name": m.Name, "effective_date": m.EffectiveDate.String(),
-		"calc_v": m.CalcV, "review_status": string(m.ReviewStatus), "content_hash": deref(m.ContentHash)}}}
+	muts := []Mut{{E: "tax_rule_set", ID: rowID, K: gsync.KindInsert, F: map[string]any{"version": int64(m.Version), "name": m.Name, "effective_date": m.EffectiveDate.String(),
+		"calc_v": int64(m.CalcV), "review_status": string(m.ReviewStatus), "content_hash": deref(m.ContentHash)}}}
 	for _, r := range m.Rules {
 		f := map[string]any{"rule_set_id": rowID, "tax_class": r.TaxClass, "regime": string(r.Regime), "specified_premises": r.SpecifiedPremises,
-			"order_channel": string(r.OrderChannel), "doc_type": string(r.DocType), "gst_applies": r.GstApplies, "cgst_bp": r.CgstBp, "sgst_bp": r.SgstBp, "igst_bp": r.IgstBp}
+			"order_channel": string(r.OrderChannel), "doc_type": string(r.DocType), "gst_applies": r.GstApplies, "cgst_bp": int64(r.CgstBp), "sgst_bp": int64(r.SgstBp), "igst_bp": int64(r.IgstBp)}
 		if r.Sac != nil {
 			f["sac"] = *r.Sac
 		}
 		id := uuid5("tax_rule", rowID+"|"+r.TaxClass+"|"+string(r.Regime)+"|"+boolStr(r.SpecifiedPremises)+"|"+string(r.OrderChannel))
-		muts = append(muts, Mut{E: "tax_rule", ID: id, K: "insert", F: f})
+		muts = append(muts, Mut{E: "tax_rule", ID: id, K: gsync.KindInsert, F: f})
 	}
-	return rowID, muts
+	return muts
 }
 
 func boolStr(b bool) string {
@@ -408,42 +433,21 @@ func boolStr(b bool) string {
 	return "false"
 }
 
-// DeliverEmissions emits every queued rule-set row (one op per organisation, op id UUIDv5(tenant, version), so a
-// retry cannot duplicate) and marks it acknowledged when the gateway accepted it. It is run on a timer by the process
-// and directly by tests; it returns how many were acknowledged.
-func (s *Service) DeliverEmissions(ctx context.Context, batch int) (int, error) {
-	var pending []repository.Emission
-	if err := s.repo.InGlobalTx(ctx, func(ctx context.Context, tx repository.GlobalTx) error {
-		var err error
-		pending, err = tx.PendingEmissions(ctx, batch)
+// queueRuleSet records that a published version is owed to an organisation and queues its op in emit_queue, in the
+// caller's transaction (ADR-0014 A2.2: the key is the UUIDv5 of tenant and version, so the publication, a later
+// organisation and a restore all converge on one op per organisation). A publication carries the vendor approver and the
+// verified grant's approval id; the emission to an organisation created later is a system emit.
+func (s *Service) queueRuleSet(ctx context.Context, tx repository.GlobalTx, m gen.TaxRuleSetMaster, tenant, actor, approval string, now time.Time) error {
+	key := emit.DeterministicKey("tax.rule_set.publish", tenant, itoa(m.Version))
+	op := emit.Op{Key: key, Stream: "tenant:" + tenant, Intent: "tax.rule_set.publish", IntentV: 1, Muts: ruleSetMuts(tenant, m), Actor: "service:" + Name}
+	if approval != "" {
+		by := "admin.taxrules.publish"
+		op.Actor, op.AuthorisedBy, op.Approval = actor, &by, approval
+	}
+	if err := tx.QueueEmission(ctx, m.Id, tenant, key); err != nil {
 		return err
-	}); err != nil {
-		return 0, err
 	}
-	n := 0
-	for _, e := range pending {
-		var m gen.TaxRuleSetMaster
-		if err := s.repo.InGlobalTx(ctx, func(ctx context.Context, tx repository.GlobalTx) error {
-			var err error
-			m, err = s.getMaster(ctx, tx, e.RuleSetID)
-			return err
-		}); err != nil {
-			return n, err
-		}
-		rowID, muts := emitMuts(e.TenantID, m)
-		if _, err := s.emitter.Emit(ctx, EmitOp{TenantID: e.TenantID, Stream: "tenant", OpID: rowID, Intent: "cloud.emit", Muts: muts}); err != nil {
-			s.log.Warn("rule-set emission failed; it stays queued", "rule_set", e.RuleSetID, "error", err)
-			continue
-		}
-		if err := s.repo.InGlobalTx(ctx, func(ctx context.Context, tx repository.GlobalTx) error {
-			_, err := tx.AckEmission(ctx, e.RuleSetID, e.TenantID, s.clock.Now())
-			return err
-		}); err != nil {
-			return n, err
-		}
-		n++
-	}
-	return n, nil
+	return tx.EnqueueEmit(ctx, now, tenant, op)
 }
 
 // RecordOrganisation is called on tenancy's creation event: the organisation becomes an audience of rule-set
@@ -472,7 +476,7 @@ func (s *Service) RecordOrganisation(ctx context.Context, tenant string) error {
 		}
 		for _, v := range vs {
 			if v.EffectiveDate.String() >= current {
-				if err := tx.QueueEmission(ctx, v.Id, tenant); err != nil {
+				if err := s.queueRuleSet(ctx, tx, v, tenant, "", "", s.clock.Now()); err != nil {
 					return err
 				}
 			}

@@ -2,10 +2,15 @@ package service
 
 import (
 	"context"
+	"errors"
 	"regexp"
+	"strings"
 	"time"
 
+	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/apperr"
+	"github.com/hostryhq/go-common/emit"
+	gsync "github.com/hostryhq/go-common/sync"
 
 	"github.com/hostryhq/svc-billing/internal/gen"
 	"github.com/hostryhq/svc-billing/internal/tstamp"
@@ -24,22 +29,23 @@ func DefaultSettings(outlet string) gen.BillingSettings {
 		RebillAllowancePerShift: 3, CompAllowance: money(50000), OpenItemLimit: money(50000), ManualEntryMaxDaysBack: 2, ShiftRequired: true, HandoverCount: true}
 }
 
-// config applies billing_settings, outlet_tax_profile and tender_kind mutations: last writer wins by (hlc, origin).
+// config projects billing_settings, outlet_tax_profile and tender_kind from the rows the projection engine resolved
+// (go-common sync, ADR-0014 A2.1): per field group the highest stamp (hlc, origin, seq, index) wins, whatever the arrival
+// order, and a void of a refused op removes its candidates. A row the engine does not (or no longer) see as existing
+// removes the stored document, which is how a voided first insert disappears.
 func (ac *applyCtx) config(ctx context.Context) error {
-	for _, m := range ac.g["billing_settings"] {
-		f := m.F
-		d, err := ac.tx.GetDoc(ctx, repository.KindSettings, ac.outlet)
-		rec := settingsRec{Settings: DefaultSettings(ac.outlet)}
-		if err == nil {
-			if rec, err = unmarshalDoc[settingsRec](d); err != nil {
+	changed := false
+	for _, r := range ac.rows["billing_settings"] {
+		o := ac.outletOfRow(r.Key)
+		changed = true
+		if !r.Exists {
+			if err := ac.tx.DeleteDoc(ctx, repository.KindSettings, o); err != nil {
 				return err
 			}
-		} else if err != repository.ErrNotFound {
-			return err
-		}
-		if d.Stamp != "" && ac.op.stamp() < d.Stamp {
 			continue
 		}
+		f := r.Fields
+		rec := settingsRec{Settings: DefaultSettings(o)}
 		s := &rec.Settings
 		if fhas(f, "number_at") {
 			s.NumberAt = gen.BillingSettingsNumberAt(fstr(f, "number_at"))
@@ -78,68 +84,67 @@ func (ac *applyCtx) config(ctx context.Context) error {
 			rec.PackingTaxClass = fstr(f, "packing_tax_class")
 		}
 		s.UpdatedAt = tsPtr(ac.at())
-		if err := ac.tx.SaveDoc(ctx, repository.Doc{Kind: repository.KindSettings, ID: ac.outlet, Outlet: ac.outlet, Stamp: ac.op.stamp(), Body: marshalDoc(rec)}); err != nil {
-			return err
-		}
-		if err := ac.reverifyPending(ctx); err != nil {
+		if err := ac.tx.SaveDoc(ctx, repository.Doc{Kind: repository.KindSettings, ID: o, Outlet: o, Body: marshalDoc(rec)}); err != nil {
 			return err
 		}
 	}
-	for _, m := range ac.g["outlet_tax_profile"] {
-		f := m.F
-		fy := fstr(f, "financial_year")
-		d, err := ac.tx.GetDoc(ctx, repository.KindTaxProfile, m.ID)
-		p := gen.OutletTaxProfile{OutletId: ac.outlet, FinancialYear: fy}
-		if err == nil {
-			if p, err = unmarshalDoc[gen.OutletTaxProfile](d); err != nil {
+	for _, r := range ac.rows["outlet_tax_profile"] {
+		o := ac.outletOfRow(r.Key)
+		changed = true
+		if !r.Exists {
+			if err := ac.tx.DeleteDoc(ctx, repository.KindTaxProfile, r.Key.ID); err != nil {
 				return err
 			}
-			fy = p.FinancialYear
-		} else if err != repository.ErrNotFound {
-			return err
-		}
-		if d.Stamp != "" && ac.op.stamp() < d.Stamp {
 			continue
 		}
-		if fhas(f, "specified_premises") {
-			p.SpecifiedPremises = fbool(f, "specified_premises")
-		}
+		f := r.Fields
+		fy := fstr(f, "financial_year")
+		p := gen.OutletTaxProfile{OutletId: o, FinancialYear: fy, SpecifiedPremises: fbool(f, "specified_premises")}
 		if fhas(f, "fssai_number") {
 			p.FssaiNumber = ptr(fstr(f, "fssai_number"))
 		}
 		p.UpdatedAt = tsPtr(ac.at())
-		if err := ac.tx.SaveDoc(ctx, repository.Doc{Kind: repository.KindTaxProfile, ID: m.ID, Outlet: ac.outlet, Date: "", Sort: fy, K1: fy, Stamp: ac.op.stamp(), Body: marshalDoc(p)}); err != nil {
-			return err
-		}
-		if err := ac.reverifyPending(ctx); err != nil {
+		if err := ac.tx.SaveDoc(ctx, repository.Doc{Kind: repository.KindTaxProfile, ID: r.Key.ID, Outlet: o, Date: "", Sort: fy, K1: fy, Body: marshalDoc(p)}); err != nil {
 			return err
 		}
 	}
-	for _, m := range ac.g["tender_kind"] {
-		f := m.F
-		d, err := ac.tx.GetDoc(ctx, repository.KindTender, m.ID)
-		t := gen.TenderKind{Id: m.ID, OutletId: ac.outlet, Kind: gen.TenderKindKind(fstr(f, "kind")), Enabled: true}
-		if err == nil {
-			if t, err = unmarshalDoc[gen.TenderKind](d); err != nil {
+	for _, r := range ac.rows["tender_kind"] {
+		o := ac.outletOfRow(r.Key)
+		if !r.Exists {
+			if err := ac.tx.DeleteDoc(ctx, repository.KindTender, r.Key.ID); err != nil {
 				return err
 			}
-		} else if err != repository.ErrNotFound {
-			return err
-		}
-		if d.Stamp != "" && ac.op.stamp() < d.Stamp {
 			continue
 		}
-		if fhas(f, "name") {
-			t.Name = fstr(f, "name")
-		}
+		f := r.Fields
+		t := gen.TenderKind{Id: r.Key.ID, OutletId: o, Kind: gen.TenderKindKind(fstr(f, "kind")), Enabled: true, Name: fstr(f, "name")}
 		if fhas(f, "enabled") {
 			t.Enabled = fbool(f, "enabled")
 		}
-		if err := ac.tx.SaveDoc(ctx, repository.Doc{Kind: repository.KindTender, ID: m.ID, Outlet: ac.outlet, Sort: t.Name, Stamp: ac.op.stamp(), Body: marshalDoc(t)}); err != nil {
+		if err := ac.tx.SaveDoc(ctx, repository.Doc{Kind: repository.KindTender, ID: r.Key.ID, Outlet: o, Sort: t.Name, Body: marshalDoc(t)}); err != nil {
 			return err
 		}
 	}
+	if changed {
+		return ac.reverifyPending(ctx)
+	}
 	return nil
+}
+
+// outletOfRow is the outlet a resolved row belongs to: the stream of this op for a row it mutates, the stream of the
+// voided op for a row a void exposed.
+func (ac *applyCtx) outletOfRow(k gsync.RowKey) string {
+	for _, m := range ac.op.Muts {
+		if m.E == k.Entity && m.ID == k.ID {
+			return ac.outlet
+		}
+	}
+	for _, v := range ac.op.Voids {
+		if o, ok := strings.CutPrefix(v.Stream, "outlet:"); ok {
+			return o
+		}
+	}
+	return ac.outlet
 }
 
 // ruleSets applies the tax_rule_set and tax_rule rows emitted to this organisation (cloud-origin, immutable).
@@ -268,22 +273,43 @@ func isNF(err error) bool { return err == repository.ErrNotFound }
 
 var fyPattern = regexp.MustCompile(`^[0-9]{4}$`)
 
-func (s *Service) emitConfig(ctx context.Context, outlet, idemOp string, id string, entity string, fields map[string]any) (gen.ConfigChange, error) {
+// emitConfig sends one cloud-origin config op through the gateway emit and answers where it landed. It runs outside any
+// transaction: the answer comes back through the bus and its projection needs a transaction of its own. The key is
+// derived from the caller's Idempotency-Key (ADR-0014 A2.2 item 4), so a retried edit is one op; a retry with another
+// body under the same key is the gateway's idempotency.mismatch (a defect in the caller, 500 emit.rejected). When the
+// gateway is down nothing changed and the route answers 503 emit.unavailable.
+func (s *Service) emitConfig(ctx context.Context, outlet, opName, intent, authorisedBy string, muts []Mut) (gen.ConfigChange, error) {
 	t, err := tenantOf(ctx)
 	if err != nil {
 		return gen.ConfigChange{}, err
 	}
-	key := ""
+	key := s.mintID()
 	if im, ok := idemFrom(ctx); ok {
 		key = im.Key
 	}
-	op := EmitOp{TenantID: t.String(), Stream: "outlet:" + outlet, OpID: uuid5("emit|"+idemOp, outlet+"|"+key), Intent: "cloud.emit",
-		Muts: []Mut{{E: entity, ID: id, K: "set", F: fields}}}
-	opID, err := s.emitter.Emit(ctx, op)
+	p, _ := auth.PrincipalFrom(ctx)
+	by := authorisedBy
+	op := emit.Op{Key: emit.DeriveKey(opName+"|"+outlet+"|"+key, 0), Stream: "outlet:" + outlet, Intent: intent, IntentV: 1, Muts: muts, Actor: p.Subject, AuthorisedBy: &by}
+	res, err := s.emitter.Emit(ctx, t, []emit.Op{op})
 	if err != nil {
+		var rej *emit.RejectedError
+		if errors.As(err, &rej) {
+			s.log.Error("emit refused by the gateway: defect in billing", "intent", intent, "status", rej.Status, "code", rej.Code)
+			return gen.ConfigChange{}, rej.AppError()
+		}
 		return gen.ConfigChange{}, err
 	}
-	return gen.ConfigChange{OutletId: outlet, UpdatedAt: tstamp.Of(s.clock.Now()), OpId: opID}, nil
+	return gen.ConfigChange{OutletId: outlet, UpdatedAt: tstamp.Of(s.clock.Now()), OpId: opID(res[0])}, nil
+}
+
+// opID is the identity of an emitted op as the API shows it: origin, stream and sequence, the outlet id shortened to its
+// first eight characters as in the contract's example.
+func opID(r emit.Result) string {
+	stream := r.Stream
+	if rest, ok := strings.CutPrefix(stream, "outlet:"); ok && len(rest) > 8 {
+		stream = "outlet:" + rest[:8]
+	}
+	return r.Origin + "/" + stream + "/" + itoa(int(r.Seq))
 }
 
 // SetDiscountLimit sets the cashier discount limit (strong session). It emits a billing_settings config op.
@@ -297,7 +323,10 @@ func (s *Service) SetDiscountLimit(ctx context.Context, outlet string, bp int) (
 	if err := s.check(ctx, outlet); err != nil {
 		return gen.ConfigChange{}, err
 	}
-	return s.emitConfig(ctx, outlet, "setDiscountLimit", uuid5("billing_settings", outlet), "billing_settings", map[string]any{"discount_limit_bp": bp})
+	// The intent lists only `set` for this entity (sync/intents/cloud.yaml settings.discount_limit.set): the row is the one
+	// the numbering or profile insert, or the device, created.
+	return s.emitConfig(ctx, outlet, "setDiscountLimit", "settings.discount_limit.set", "bill.discount.limit.edit",
+		[]Mut{{E: "billing_settings", ID: uuid5("billing_settings", outlet), K: gsync.KindSet, F: map[string]any{"discount_limit_bp": int64(bp)}}})
 }
 
 // SetNumberingMode chooses when a bill takes its number. It is refused while the outlet has an open check, which
@@ -322,7 +351,8 @@ func (s *Service) SetNumberingMode(ctx context.Context, outlet, mode string) (ge
 	if n > 0 {
 		return gen.ConfigChange{}, apperr.New(apperr.Conflict, "open_checks_exist", "the outlet has open checks")
 	}
-	return s.emitConfig(ctx, outlet, "setNumberingMode", uuid5("billing_settings", outlet), "billing_settings", map[string]any{"number_at": mode})
+	return s.emitConfig(ctx, outlet, "setNumberingMode", "settings.numbering.set", "settings.numbering.edit",
+		[]Mut{{E: "billing_settings", ID: uuid5("billing_settings", outlet), K: gsync.KindInsert, F: map[string]any{"number_at": mode}}})
 }
 
 // check reads the outlet in a short transaction of its own: the emit must not run inside a transaction, because the
@@ -367,16 +397,10 @@ func (s *Service) SetOutletTaxProfile(ctx context.Context, outlet, fy string, sp
 	if fssai != nil {
 		f["fssai_number"] = *fssai
 	}
-	ch, err := s.emitConfig(ctx, outlet, "setOutletTaxProfile", uuid5("outlet_tax_profile", outlet+"|"+fy), "outlet_tax_profile", f)
-	if err != nil {
-		return ch, err
-	}
-	if priceMode != nil {
-		if _, err := s.emitConfig(ctx, outlet, "setOutletTaxProfile.price_mode", uuid5("billing_settings", outlet), "billing_settings", map[string]any{"price_mode": *priceMode}); err != nil {
-			return ch, err
-		}
-	}
-	return ch, nil
+	// price_mode has no intent that carries it with this edit (settings.tax_profile.set lists outlet_tax_profile only): it
+	// is accepted and validated, not emitted (docs/notes.md, spec problem).
+	return s.emitConfig(ctx, outlet, "setOutletTaxProfile", "settings.tax_profile.set", "settings.gst_profile.edit",
+		[]Mut{{E: "outlet_tax_profile", ID: uuid5("outlet_tax_profile", outlet+"|"+fy), K: gsync.KindInsert, F: f}})
 }
 
 func fyStart(fy string) (time.Time, bool) {

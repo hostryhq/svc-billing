@@ -6,6 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hostryhq/go-common/emit"
+	gsync "github.com/hostryhq/go-common/sync"
+
 	"github.com/hostryhq/svc-billing/internal/gen"
 	"github.com/hostryhq/svc-billing/internal/tstamp"
 	"github.com/hostryhq/svc-billing/repository"
@@ -273,7 +276,11 @@ func (s *Service) FlushRevisions(ctx context.Context) (int, error) {
 			if rev.AddedSeriesRanges == nil {
 				rev.AddedSeriesRanges = []gen.SeriesRange{}
 			}
-			if _, err := tx.PutDoc(ctx, repository.Doc{Kind: repository.KindRevision, ID: rev.Id, Outlet: day.OutletId, Date: day.BusinessDate.String(), Sort: itoa(1000000 + num), K1: p.DayID, K2: "pending", Body: marshalDoc(rev)}); err != nil {
+			if _, err := tx.PutDoc(ctx, repository.Doc{Kind: repository.KindRevision, ID: rev.Id, Outlet: day.OutletId, Date: day.BusinessDate.String(), Sort: itoa(1000000 + num), K1: p.DayID, Body: marshalDoc(rev)}); err != nil {
+				return err
+			}
+			// the revision reaches the outlet's devices as a cloud-origin op, queued in this transaction (A1.1 item 6, A2.2)
+			if err := tx.EnqueueEmit(ctx, now, revisionOp(day, rev)); err != nil {
 				return err
 			}
 			day.RevisionCount++
@@ -288,6 +295,30 @@ func (s *Service) FlushRevisions(ctx context.Context) (int, error) {
 		return nil
 	})
 	return n, err
+}
+
+// revisionOp is the day.revision.record op of one sealed revision. Its key is the UUIDv5 of the day and the revision
+// number, so a retried or restored emit is one op; billing is the only writer, a system emit with no user (cloud.yaml).
+func revisionOp(day gen.BusinessDay, r gen.BusinessDayRevision) emit.Op {
+	t := r.AddedTotals
+	var tj []tenderJSON
+	for _, x := range t.Tenders {
+		tj = append(tj, tenderJSON{Tender: string(x.Tender), Name: deref(x.Name), Count: x.Count, AmountPaise: x.Amount.AmountPaise})
+	}
+	var rj []rangeJSON
+	for _, x := range r.AddedSeriesRanges {
+		rj = append(rj, rangeJSON{SeriesCode: x.SeriesCode, DocType: string(x.DocType), FirstNumber: x.FirstNumber, LastNumber: x.LastNumber, Count: x.Count})
+	}
+	tb, _ := json.Marshal(tj)
+	rb, _ := json.Marshal(rj)
+	f := map[string]any{"business_day_id": r.BusinessDayId, "revision": int64(r.Revision), "cause": string(r.Cause), "origin_device_id": r.OriginDeviceId,
+		"op_from_seq": r.OpFromSeq, "op_to_seq": r.OpToSeq, "display_number": r.DisplayNumber,
+		"gross_paise": t.Gross.AmountPaise, "discount_paise": t.Discounts.AmountPaise, "net_paise": t.Net.AmountPaise, "service_charge_paise": t.ServiceCharge.AmountPaise,
+		"cgst_paise": t.Cgst.AmountPaise, "sgst_paise": t.Sgst.AmountPaise, "non_gst_paise": t.NonGst.AmountPaise, "round_off_paise": t.RoundOff.AmountPaise,
+		"total_paise": t.Total.AmountPaise, "bill_count": int64(t.BillCount), "credit_note_count": int64(t.CreditNoteCount), "credit_note_total_paise": t.CreditNoteTotal.AmountPaise,
+		"refund_total_paise": t.RefundTotal.AmountPaise, "internal_consumption_paise": t.InternalConsumption.AmountPaise, "tenders_json": string(tb), "series_ranges_json": string(rb)}
+	return emit.Op{Key: emit.DeterministicKey("day.revision.record", r.BusinessDayId, itoa(r.Revision)), Stream: "outlet:" + day.OutletId, Intent: "day.revision.record", IntentV: 1,
+		Muts: []Mut{{E: "business_day_revision", ID: r.Id, K: gsync.KindInsert, F: f}}, Actor: "service:" + Name}
 }
 
 func tstampParse(s string) (time.Time, error) { return time.Parse(time.RFC3339Nano, s) }

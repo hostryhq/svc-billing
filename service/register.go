@@ -106,7 +106,10 @@ func (ac *applyCtx) register(ctx context.Context, code, fy, number, docType, sou
 	if err != nil {
 		return err
 	}
-	return ac.syncGaps(ctx, rec, h, gapKind, ac.op.Actor)
+	if err := ac.syncGaps(ctx, rec, h, gapKind, ac.op.Actor); err != nil {
+		return err
+	}
+	return ac.linkAndReconcile(ctx, reg, code)
 }
 
 // syncGaps makes the gap documents of a series equal the current holes: a hole that is new raises the alert, a hole
