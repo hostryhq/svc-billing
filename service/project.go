@@ -275,6 +275,12 @@ func (ac *applyCtx) addLate(ctx context.Context, day gen.BusinessDay, contrib ge
 
 // exception records a detector finding once per (kind, subject).
 func (ac *applyCtx) exception(ctx context.Context, kind string, sev gen.ExceptionSeverity, subjectKind, subjectID, date string, params map[string]any) error {
+	return ac.exceptionWhy(ctx, kind, sev, "", subjectKind, subjectID, date, params)
+}
+
+// exceptionWhy is exception with the reason the detector fired when its kind has more than one cause (`missing`: the approval
+// or document the subject needed never arrived).
+func (ac *applyCtx) exceptionWhy(ctx context.Context, kind string, sev gen.ExceptionSeverity, why gen.ExceptionReason, subjectKind, subjectID, date string, params map[string]any) error {
 	id := exceptionID(kind, subjectID, params)
 	ex := gen.Exception{Id: id, Kind: kind, Severity: sev, Status: gen.ExceptionStatusOpen, SubjectKind: subjectKind, SubjectId: subjectID,
 		OutletId: ac.outlet, DetectedAt: tstamp.Of(ac.s.clock.Now()), DetailKey: "exception." + kind}
@@ -282,6 +288,9 @@ func (ac *applyCtx) exception(ctx context.Context, kind string, sev gen.Exceptio
 		var d gen.BusinessDay
 		_ = d
 		ex.BusinessDate = parseDate(date)
+	}
+	if why != "" {
+		ex.Reason = &why
 	}
 	if len(params) > 0 {
 		p := params

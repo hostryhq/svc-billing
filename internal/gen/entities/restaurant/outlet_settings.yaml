@@ -15,7 +15,7 @@ fields:
     required: true
     policy: lww
     minimum: 0
-    description: Grace window for cancels while the kitchen status is new (default 120).
+    description: Grace window in seconds for cancels while the kitchen status is new (default 120). Permission order.line.cancel.grace (intent order.line.cancel.grace) cancels a kitchen-new line within this window and never on a presented check; later, or once the kitchen has started, it is order.line.cancel with a reason and approval.
   kot_stale_after_seconds:
     type: int
     required: true

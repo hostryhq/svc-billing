@@ -115,4 +115,5 @@ fields:
 written_by_intents:
 - bill.finalize
 - bill.rebill
+- bill.rebill.approved
 - bill.manual_entry

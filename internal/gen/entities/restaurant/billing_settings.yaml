@@ -89,21 +89,21 @@ fields:
     policy: lww_review
     group: limits
     minimum: 0
-    description: Re-bills per member per shift without approval.
+    description: Re-bills per member per shift without approval (bill.rebill). A re-bill past it, or of a bill that has a payment, is bill.rebill.approved with a manager's approval for bill.credit_note.create.
   comp_allowance_paise:
     type: paise
     required: true
     policy: lww_review
     minimum: 0
     group: limits
-    description: Comp and internal closure list value per member per shift.
+    description: Comp and internal closure list value per member per shift in paise (bill.line.comp.allowance); default 50000 (Rs 500). Past it the line needs bill.line.comp with approval; a finding comp_allowance_exceeded is raised either way.
   open_item_limit_paise:
     type: paise
     required: true
     policy: lww_review
     minimum: 0
     group: limits
-    description: Open item price limit.
+    description: Open item price limit in paise per member per shift (menu.open_item); default 50000 (Rs 500). Past it the item needs bill.line.comp with approval.
   manual_entry_max_days_back:
     type: int
     required: true

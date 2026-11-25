@@ -332,6 +332,21 @@ func (e DiscountRowKind) Valid() bool {
 	}
 }
 
+// Defines values for ExceptionReason.
+const (
+	Missing ExceptionReason = "missing"
+)
+
+// Valid indicates whether the value is a known member of the ExceptionReason enum.
+func (e ExceptionReason) Valid() bool {
+	switch e {
+	case Missing:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExceptionSeverity.
 const (
 	High    ExceptionSeverity = "high"
@@ -2343,6 +2358,11 @@ type Exception struct {
 	// Example: {"paid_paise":168000,"total_paise":84000}
 	Params *map[string]any `json:"params,omitempty"`
 
+	// Reason Why the detector fired, when a kind has more than one cause. `missing`: the approval or document the subject needed never arrived (for example the approval a re-bill past its allowance cites). Absent when the kind has a single cause.
+	//
+	// Example: missing
+	Reason *ExceptionReason `json:"reason,omitempty"`
+
 	// ResolvedAt RFC 3339 instant in UTC.
 	//
 	// Example: 2026-11-24T13:05:11.120Z
@@ -2373,6 +2393,11 @@ type Exception struct {
 	// Example: bill
 	SubjectKind string `json:"subject_kind"`
 }
+
+// ExceptionReason Why the detector fired, when a kind has more than one cause. `missing`: the approval or document the subject needed never arrived (for example the approval a re-bill past its allowance cites). Absent when the kind has a single cause.
+//
+// Example: missing
+type ExceptionReason string
 
 // ExceptionPage defines model for ExceptionPage.
 type ExceptionPage struct {
@@ -4699,7 +4724,7 @@ type ClientInterface interface {
 
 	// ListBillingExceptions List billing exceptions
 	//
-	// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
+	// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped, and the document-integrity kinds credit_exceeds_bill (high: credit notes against a bill exceed its value), duplicate_number (high: two documents with one number in a series), rebill_after_payment, rebill_allowance_exceeded, rebill_value_reduced, rebill_value_reduction_over_allowance, rebill_value_reduction_repeated (high) and comp_allowance_exceeded. Severity is warning unless marked high. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
 	//
 	// Corresponds with GET /v1/exceptions (the `ListBillingExceptions` operationId).
 	ListBillingExceptions(ctx context.Context, params *ListBillingExceptionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -5244,7 +5269,7 @@ func (c *Client) ListDocumentGaps(ctx context.Context, params *ListDocumentGapsP
 
 // ListBillingExceptions List billing exceptions
 //
-// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
+// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped, and the document-integrity kinds credit_exceeds_bill (high: credit notes against a bill exceed its value), duplicate_number (high: two documents with one number in a series), rebill_after_payment, rebill_allowance_exceeded, rebill_value_reduced, rebill_value_reduction_over_allowance, rebill_value_reduction_repeated (high) and comp_allowance_exceeded. Severity is warning unless marked high. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
 //
 // Corresponds with GET /v1/exceptions (the `ListBillingExceptions` operationId).
 func (c *Client) ListBillingExceptions(ctx context.Context, params *ListBillingExceptionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -8955,7 +8980,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListBillingExceptionsWithResponse List billing exceptions
 	//
-	// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
+	// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped, and the document-integrity kinds credit_exceeds_bill (high: credit notes against a bill exceed its value), duplicate_number (high: two documents with one number in a series), rebill_after_payment, rebill_allowance_exceeded, rebill_value_reduced, rebill_value_reduction_over_allowance, rebill_value_reduction_repeated (high) and comp_allowance_exceeded. Severity is warning unless marked high. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -12041,7 +12066,7 @@ func (c *ClientWithResponses) ListDocumentGapsWithResponse(ctx context.Context, 
 
 // ListBillingExceptionsWithResponse List billing exceptions
 //
-// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
+// Detector findings: payments_exceed_total, line_on_two_bills, two_bills_one_check, doc_type_regime_mismatch, tax_mismatch, stale_rules, profile_mismatch, manual_entry, manual_book_missing_number, document_gap, series_quarantined, two_open_days, late_document, allowance_exceeded, handover_skipped, and the document-integrity kinds credit_exceeds_bill (high: credit notes against a bill exceed its value), duplicate_number (high: two documents with one number in a series), rebill_after_payment, rebill_allowance_exceeded, rebill_value_reduced, rebill_value_reduction_over_allowance, rebill_value_reduction_repeated (high) and comp_allowance_exceeded. Severity is warning unless marked high. A bill is never altered or rejected; the remedy is a new op (refund or credit note).
 //
 // Returns a wrapper object for the known response body format(s).
 //

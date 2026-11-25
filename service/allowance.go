@@ -68,7 +68,13 @@ type RebillRec struct {
 	At         time.Time `json:"at"`
 	Credited   int64     `json:"credited_paise"`
 	Reduction  int64     `json:"reduction_paise"`
+	// Approved is true for a bill.rebill.approved op: a manager's approval, bound to the bill and the value change, covers it.
+	// An approved re-bill counts toward the value-reduction detectors but not toward the per-shift allowance count.
+	Approved bool `json:"approved,omitempty"`
 }
+
+// approvedRebillIntent is the intent of a re-bill taken with a manager's approval (after a payment, or past the allowance).
+const approvedRebillIntent = "bill.rebill.approved"
 
 // shiftKey names the shift a member's document belongs to: the member's shift that was open at the instant, else the
 // business date (a shift fact that has not arrived yet must not let a count restart).
@@ -139,13 +145,16 @@ func (ac *applyCtx) rebill(ctx context.Context, note Mut, group string) error {
 	if err != nil {
 		return err
 	}
-	rec := RebillRec{Group: group, NoteID: note.ID, OrigBillID: fstr(note.F, "bill_id"), Member: member, ShiftKey: shift, At: ac.op.At, Credited: credited, Reduction: credited - replaced}
+	rec := RebillRec{Group: group, NoteID: note.ID, OrigBillID: fstr(note.F, "bill_id"), Member: member, ShiftKey: shift, At: ac.op.At, Credited: credited, Reduction: credited - replaced,
+		Approved: ac.op.Intent == approvedRebillIntent}
 	created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindRebill, ID: group, Outlet: ac.outlet, Date: date, K1: member, Body: marshalDoc(rec)})
 	if err != nil || !created {
 		return err
 	}
-	if err := ac.paymentAfterRebill(ctx, rec.OrigBillID); err != nil {
-		return err
+	if !rec.Approved { // a re-bill after payment is the approved intent's case; without the approval it is a finding
+		if err := ac.paymentAfterRebill(ctx, rec.OrigBillID); err != nil {
+			return err
+		}
 	}
 	set, err := ac.limits(ctx)
 	if err != nil {
@@ -160,14 +169,17 @@ func (ac *applyCtx) rebill(ctx context.Context, note Mut, group string) error {
 		if r.ShiftKey != shift {
 			continue
 		}
-		count++
+		if !r.Approved {
+			count++
+		}
 		if r.Reduction > 0 {
 			reducing++
 		}
 	}
 	params := map[string]any{"member_id": member, "shift": shift}
-	if count > set.RebillAllowancePerShift {
-		if err := ac.exception(ctx, "rebill_allowance_exceeded", gen.High, "credit_note", note.ID, date, mergeParams(params, "count", count, "allowance", set.RebillAllowancePerShift)); err != nil {
+	if !rec.Approved && count > set.RebillAllowancePerShift {
+		// Past the allowance the re-bill needed bill.rebill.approved; this op is the plain intent, so the approval is missing.
+		if err := ac.exceptionWhy(ctx, "rebill_allowance_exceeded", gen.High, gen.Missing, "credit_note", note.ID, date, mergeParams(params, "count", count, "allowance", set.RebillAllowancePerShift)); err != nil {
 			return err
 		}
 	}
@@ -208,9 +220,13 @@ func (ac *applyCtx) paymentAfterRebill(ctx context.Context, billID string) error
 	}
 	var rebilled []CreditRec
 	for _, n := range notes {
-		if n.Note.RebillGroupId != nil {
-			rebilled = append(rebilled, n)
+		if n.Note.RebillGroupId == nil {
+			continue
 		}
+		if g, err := load[RebillRec](ctx, ac.tx, repository.KindRebill, *n.Note.RebillGroupId); err == nil && g.Approved {
+			continue
+		}
+		rebilled = append(rebilled, n)
 	}
 	if len(rebilled) == 0 {
 		return nil
@@ -220,7 +236,7 @@ func (ac *applyCtx) paymentAfterRebill(ctx context.Context, billID string) error
 		return err
 	}
 	for _, n := range rebilled {
-		if err := ac.exception(ctx, "rebill_after_payment", gen.High, "credit_note", n.Note.Id, n.Note.BusinessDate.String(), map[string]any{"bill_id": billID, "payments": len(pays)}); err != nil {
+		if err := ac.exceptionWhy(ctx, "rebill_after_payment", gen.High, gen.Missing, "credit_note", n.Note.Id, n.Note.BusinessDate.String(), map[string]any{"bill_id": billID, "payments": len(pays)}); err != nil {
 			return err
 		}
 	}

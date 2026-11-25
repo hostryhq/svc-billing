@@ -85,6 +85,14 @@ fields:
     policy: immutable
     minimum: 0
     description: Total.
+  replacement_total_paise:
+    type: paise
+    required: false
+    policy: immutable
+    minimum: 0
+    description: Set only on the credit note of a re-bill (`rebill_group_id` present), the sum of `total_paise` of the replacement bills of the group.
+      Written by bill.rebill.approved, whose approval binds it (the value change); optional so older notes validate. An ordinary non-pii field, so every
+      convergence hash and projection digest covers it with the row (sync/protocol-v1.md, one rule for every convergence hash).
   round_off_paise:
     type: paise
     required: true
@@ -125,3 +133,4 @@ detectors:
 written_by_intents:
 - creditnote.issue
 - bill.rebill
+- bill.rebill.approved

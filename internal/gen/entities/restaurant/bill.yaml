@@ -247,5 +247,6 @@ detectors:
 written_by_intents:
 - bill.finalize
 - bill.rebill
+- bill.rebill.approved
 - bill.manual_entry
 notes: 'id: client UUIDv7, except source_kind manual_book, where it is uuidv5 "bill|{series_code}|{financial_year}|{number}".'

@@ -63,6 +63,9 @@ func Handler(repo *pg.Repo, svc *service.Service) inbox.Handler {
 				OutletID string `json:"outlet_id"`
 				RegID    string `json:"tax_registration_id"`
 				Regime   string `json:"tax_regime"`
+				// EffectiveFrom is the IST date the registration applies from (the outlet's next trading-day open), absent on an
+				// update that does not change it.
+				EffectiveFrom string `json:"effective_from"`
 			}
 			if err := json.Unmarshal(e.Data, &d); err != nil {
 				return err
@@ -70,7 +73,7 @@ func Handler(repo *pg.Repo, svc *service.Service) inbox.Handler {
 			if d.Regime == "" {
 				d.Regime = "regular" // absent when the registration is not yet known
 			}
-			return svc.RecordOutlet(tctx, service.OutletRec{OutletID: d.OutletID, RegistrationID: d.RegID, Regime: d.Regime})
+			return svc.RecordOutlet(tctx, service.OutletRec{OutletID: d.OutletID, RegistrationID: d.RegID, Regime: d.Regime, EffectiveFrom: d.EffectiveFrom})
 		case e.Type == "tenancy.series.issued":
 			var d struct {
 				SeriesID string `json:"series_id"`
