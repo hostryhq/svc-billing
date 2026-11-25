@@ -2,6 +2,7 @@ entity: outlet_tax_profile
 entity_v: 1
 owner: billing
 stream: outlet
+outside_digest: true
 policy: lww
 id:
   rule: uuidv5

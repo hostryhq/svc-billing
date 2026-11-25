@@ -2,6 +2,7 @@ entity: bill_reprint
 entity_v: 1
 owner: billing
 stream: outlet
+day_parent: bill_id
 policy: append
 id:
   rule: client_uuidv7

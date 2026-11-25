@@ -2,6 +2,7 @@ entity: order_line
 entity_v: 1
 owner: orders
 stream: outlet
+day_parent: order_id
 policy: mixed
 id:
   rule: client_uuidv7

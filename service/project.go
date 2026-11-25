@@ -128,8 +128,12 @@ func (ac *applyCtx) lateDay(ctx context.Context, date string) (gen.BusinessDay, 
 	if d.Status != gen.BusinessDayStatusClosed || d.Close == nil {
 		return d, false, nil
 	}
-	// The cutoff is the moment the closing device printed the Z, an RFC 3339 timestamp (the day-close op and the API
-	// carry it so); a document made after it is late. A version-vector map (the older reading) is still honoured.
+	// cutoff_at is the instant the day was closed; a document finalised after it (at of its op) is late. Compared as
+	// instants (protocol-v1 "Day close cutoff"). `cutoff` is a version vector and never a time; the older readings
+	// (a timestamp in cutoff, a vector compared by seq) apply only to a close stored without cutoff_at.
+	if !d.Close.CutoffAt.IsZero() {
+		return d, ac.op.At.After(d.Close.CutoffAt.Time), nil
+	}
 	if at, err := time.Parse(time.RFC3339Nano, d.Close.Cutoff); err == nil {
 		return d, ac.op.At.After(at), nil
 	}

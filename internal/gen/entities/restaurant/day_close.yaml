@@ -2,6 +2,7 @@ entity: day_close
 entity_v: 1
 owner: billing
 stream: outlet
+outside_digest: true
 policy: append
 guarded: true
 id:
@@ -27,7 +28,15 @@ fields:
     required: true
     policy: immutable
     max_length: 4000
-    description: Version vector of the outlet stream the device held, canonical JSON text.
+    description: 'Version vector of the outlet stream the device held, canonical JSON text. Says which ops the printed Z covers;
+      never read as a time (the late-bill rule reads cutoff_at).'
+  cutoff_at:
+    type: ts
+    required: true
+    policy: immutable
+    description: 'The instant the device closed the day (RFC 3339 UTC, the device clock as the op carries it). The only input of
+      the late-bill rule (billing): a bill or credit note of this business date whose finalisation time is after cutoff_at of
+      the canonical close is a late document. Compared as instants, never as dates (protocol-v1.md, Day close cutoff).'
   gross_paise:
     type: paise
     required: true

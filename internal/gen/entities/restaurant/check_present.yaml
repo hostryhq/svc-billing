@@ -2,6 +2,7 @@ entity: check_present
 entity_v: 1
 owner: orders
 stream: outlet
+day_parent: check_id
 policy: append
 id:
   rule: client_uuidv7

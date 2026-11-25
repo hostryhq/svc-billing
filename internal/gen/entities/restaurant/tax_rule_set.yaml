@@ -2,6 +2,7 @@ entity: tax_rule_set
 entity_v: 1
 owner: billing
 stream: tenant
+outside_digest: true
 policy: append
 cloud_origin_only: true
 id:

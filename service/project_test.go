@@ -338,8 +338,9 @@ func TestLateBillStaysOnItsDayAndBecomesOneImmutableRevision(t *testing.T) {
 	days, _ := f.svc.ListBusinessDays(f.as(tenantA), outletA, "", "", 10)
 	dayID = days.Items[0].Id
 	f.apply(tenantA, deviceA, "outlet:"+outletA, service.Mut{E: "day_close", ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7033", K: "insert", F: map[string]any{"business_day_id": dayID,
-		"z_number": "Z/2026-11-24/P1", "cutoff": fmt.Sprintf(`{"%s":2}`, deviceA), "gross_paise": 48000, "total_paise": 50400, "bill_count": 1, "tenders_json": "[]", "series_ranges_json": "[]"}})
+		"z_number": "Z/2026-11-24/P1", "cutoff": fmt.Sprintf(`{"%s":2}`, deviceA), "cutoff_at": f.clk.Now().UTC().Format(time.RFC3339Nano), "gross_paise": 48000, "total_paise": 50400, "bill_count": 1, "tenders_json": "[]", "series_ranges_json": "[]"}})
 	// a second device that was offline sends its bill after the close
+	f.clk.Advance(time.Minute)
 	f.apply(tenantA, deviceB, "outlet:"+outletA, billMuts(billID(31), "BBB/2627/000001", 1200, true)...)
 	if !f.bill(t, billID(31)).Late || f.bill(t, billID(30)).Late {
 		t.Fatal("only the document outside the cutoff is late")

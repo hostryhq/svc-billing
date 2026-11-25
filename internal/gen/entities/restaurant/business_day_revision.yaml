@@ -2,6 +2,7 @@ entity: business_day_revision
 entity_v: 1
 owner: billing
 stream: outlet
+outside_digest: true
 policy: append
 guarded: true
 cloud_origin_only: true

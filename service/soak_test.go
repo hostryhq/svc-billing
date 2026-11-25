@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -72,6 +73,28 @@ func TestDoublePaymentIsRecordedEvenWhenItsRefundArrivesFirst(t *testing.T) {
 	}
 }
 
+// A bill-book entry reaching billing is one bill in the day's count and the register, listed as a manual entry, and the
+// same page typed again on another device (same id, a second op) adds nothing (T2, T13).
+func TestManualBookEntryIsOneBillInTheCountEvenWhenTypedTwice(t *testing.T) {
+	f := newFixture(t)
+	f.apply(tenantA, deviceA, "outlet:"+outletA, closeMuts("2026-11-24", nil)...)
+	entry := billMuts(billID(55), "BK1/2627/000007", 1200, false)
+	entry[0].F["source_kind"], entry[0].F["series_code"], entry[0].F["book_total_paise"] = "manual_book", "BK1", 50400
+	f.apply(tenantA, deviceA, "outlet:"+outletA, entry...)
+	f.apply(tenantA, deviceB, "outlet:"+outletA, entry...)
+	b := f.bill(t, billID(55))
+	if b.SourceKind != "manual_book" || b.Verification.Status != gen.VerificationStatusManualEntry {
+		t.Fatalf("bill %+v", b)
+	}
+	if ex := f.exceptions("manual_entry"); len(ex) != 1 {
+		t.Fatalf("exceptions %+v", ex)
+	}
+	rep, err := f.svc.DaySummary(f.as(tenantA), outletA, service.Range{From: "2026-11-24", To: "2026-11-24"}, "", 10)
+	if err != nil || len(rep.Items) != 1 || rep.Items[0].Totals.BillCount != 1 || rep.Items[0].Totals.Total.AmountPaise != 50400 {
+		t.Fatalf("day totals %+v %v", rep.Items, err)
+	}
+}
+
 // Payments that reach billing before their bill are counted when the bill arrives, and the overpayment is found then.
 func TestOverpaymentArrivingBeforeItsBillIsFound(t *testing.T) {
 	f := newFixture(t)
@@ -93,7 +116,7 @@ func TestCutoffAsTimestampMarksLateDocumentsAndSealsARevision(t *testing.T) {
 	dayID := days.Items[0].Id
 	cutoff := f.clk.Now().UTC().Format(time.RFC3339Nano)
 	f.apply(tenantA, deviceA, "outlet:"+outletA, service.Mut{E: "day_close", ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7033", K: "insert", F: map[string]any{"business_day_id": dayID,
-		"z_number": "Z/2026-11-24/P1", "cutoff": cutoff, "gross_paise": 48000, "total_paise": 50400, "bill_count": 1, "tenders_json": "[]", "series_ranges_json": "[]"}})
+		"z_number": "Z/2026-11-24/P1", "cutoff": fmt.Sprintf(`{"%s":2}`, deviceA), "cutoff_at": cutoff, "gross_paise": 48000, "total_paise": 50400, "bill_count": 1, "tenders_json": "[]", "series_ranges_json": "[]"}})
 	f.clk.Advance(20 * time.Minute)
 	f.apply(tenantA, deviceB, "outlet:"+outletA, billMuts(billID(61), "BBB/2627/000001", 1200, true)...)
 	if !f.bill(t, billID(61)).Late || f.bill(t, billID(60)).Late {

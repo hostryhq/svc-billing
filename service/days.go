@@ -143,7 +143,7 @@ func (ac *applyCtx) dayClose(ctx context.Context) error {
 		for _, x := range rj {
 			sr = append(sr, gen.SeriesRange{SeriesCode: x.SeriesCode, DocType: gen.SeriesRangeDocType(x.DocType), FirstNumber: x.FirstNumber, LastNumber: x.LastNumber, Count: x.Count})
 		}
-		cl := gen.DayClose{ZNumber: fstr(f, "z_number"), ClosingDeviceId: ac.op.Origin, ClosingMemberId: ac.op.Actor, ClosedAt: ac.at(), Cutoff: fstr(f, "cutoff"), Totals: t, SeriesRanges: sr}
+		cl := gen.DayClose{ZNumber: fstr(f, "z_number"), ClosingDeviceId: ac.op.Origin, ClosingMemberId: ac.op.Actor, ClosedAt: ac.at(), Cutoff: fstr(f, "cutoff"), CutoffAt: cutoffAt(f, ac.op.At), Totals: t, SeriesRanges: sr}
 		stamp := ac.op.stamp()
 		doc, gerr := ac.tx.GetDoc(ctx, repository.KindBusinessDay, d.Id)
 		switch {

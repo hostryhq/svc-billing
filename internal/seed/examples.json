@@ -248,6 +248,7 @@
     "closing_device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
     "closing_member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
     "cutoff": "{\"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e\":812}",
+    "cutoff_at": "2026-11-24T13:05:11.120Z",
     "series_ranges": [
      {
       "count": 1,
@@ -684,7 +685,7 @@
   "world": "base",
   "response": {
    "calc_v": 1,
-   "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
+   "content_hash": "17a8ae58b11bd6a005a39c800ce8cbd44f7a1ff5ea213dbd25ecb7bf3e2aaf74",
    "effective_date": "2026-04-01",
    "id": "9107573a-9de6-569a-a692-fb53d5d4c799",
    "name": "GST restaurant services 2026",
@@ -994,6 +995,7 @@
       "closing_device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
       "closing_member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
       "cutoff": "{\"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e\":812}",
+      "cutoff_at": "2026-11-24T13:05:11.120Z",
       "series_ranges": [
        {
         "count": 1,
@@ -1362,7 +1364,7 @@
    "items": [
     {
      "calc_v": 1,
-     "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
+     "content_hash": "17a8ae58b11bd6a005a39c800ce8cbd44f7a1ff5ea213dbd25ecb7bf3e2aaf74",
      "effective_date": "2026-04-01",
      "id": "9107573a-9de6-569a-a692-fb53d5d4c799",
      "name": "GST restaurant services 2026",
@@ -1391,7 +1393,7 @@
   "request": {},
   "response": {
    "calc_v": 1,
-   "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
+   "content_hash": "17a8ae58b11bd6a005a39c800ce8cbd44f7a1ff5ea213dbd25ecb7bf3e2aaf74",
    "created_at": "2026-11-24T13:05:11.120Z",
    "effective_date": "2026-12-15",
    "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",
@@ -1469,7 +1471,7 @@
   },
   "response": {
    "calc_v": 1,
-   "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
+   "content_hash": "17a8ae58b11bd6a005a39c800ce8cbd44f7a1ff5ea213dbd25ecb7bf3e2aaf74",
    "created_at": "2026-11-24T13:05:11.120Z",
    "effective_date": "2026-12-15",
    "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",

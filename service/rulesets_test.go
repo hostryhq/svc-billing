@@ -142,6 +142,15 @@ func TestPublicationNeedsAGrantForTheSubjectAndTheLeadTime(t *testing.T) {
 	for _, e := range f.store.Events() {
 		if e.TenantID.String() == service.PlatformTenant {
 			types = append(types, e.Type)
+			if e.Type == "billing.vendor_access.recorded" {
+				var d struct {
+					ApprovalID string `json:"approval_id"`
+					GrantJTI   string `json:"grant_jti"`
+				}
+				if err := json.Unmarshal(e.Data, &d); err != nil || d.ApprovalID == "" || d.GrantJTI != jtiOf(t, good) {
+					t.Fatalf("vendor_access.recorded data %s (ADR-0005 A3.4: approval_id and the grant jti)", e.Data)
+				}
+			}
 		}
 	}
 	if count(types, "billing.tax_rule_set.published") != 1 || count(types, "billing.vendor_access.recorded") != 1 {

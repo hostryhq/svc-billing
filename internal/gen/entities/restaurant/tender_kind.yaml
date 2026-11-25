@@ -2,6 +2,7 @@ entity: tender_kind
 entity_v: 1
 owner: billing
 stream: outlet
+outside_digest: true
 policy: lww
 tombstone: true
 id:

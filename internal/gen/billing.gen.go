@@ -2056,6 +2056,11 @@ type DayClose struct {
 	// Example: {"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e":812}
 	Cutoff string `json:"cutoff"`
 
+	// CutoffAt The instant the day was closed (RFC 3339 UTC). The only input of the late-bill rule: a document of this business date finalised after it is late (`late: true`, a Z revision). Compared as instants, never as dates; `cutoff` is not a time.
+	//
+	// Example: 2026-11-24T13:05:11.120Z
+	CutoffAt Timestamp `json:"cutoff_at"`
+
 	// SeriesRanges Series ranges printed.
 	SeriesRanges []SeriesRange `json:"series_ranges"`
 
@@ -3452,9 +3457,9 @@ type TaxRuleSet struct {
 	// Example: 1
 	CalcV int `json:"calc_v"`
 
-	// ContentHash SHA-256 of the canonical rules, lowercase hex.
+	// ContentHash Lowercase hex SHA-256 over the rules in canonical form (provisional): the RFC 8785 (JCS) text of each rule, with every TaxRule field the rule has set, ordered ascending by tax_class, regime, specified_premises, order_channel and doc_type, each text followed by a line feed. The same construction as an entity digest row list (sync/protocol-v1.md).
 	//
-	// Example: a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6
+	// Example: 17a8ae58b11bd6a005a39c800ce8cbd44f7a1ff5ea213dbd25ecb7bf3e2aaf74
 	ContentHash string `json:"content_hash"`
 
 	// EffectiveDate First IST invoice date the version applies to.
@@ -3526,7 +3531,7 @@ type TaxRuleSetMaster struct {
 
 	// ContentHash Hash stored at signing.
 	//
-	// Example: a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6
+	// Example: 17a8ae58b11bd6a005a39c800ce8cbd44f7a1ff5ea213dbd25ecb7bf3e2aaf74
 	ContentHash *string `json:"content_hash,omitempty"`
 
 	// CreatedAt RFC 3339 instant in UTC.

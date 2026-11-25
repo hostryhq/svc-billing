@@ -361,7 +361,7 @@ func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (g
 			"effective_date": m.EffectiveDate.String(), "content_hash": deref(m.ContentHash), "review_status": m.ReviewStatus}); err != nil {
 			return m, err
 		}
-		data := map[string]any{"approval_id": g.ApprovalID, "action": "tax_rule_set_publish", "vendor_user_id": p.Subject, "result": "success"}
+		data := map[string]any{"approval_id": g.ApprovalID, "action": "tax_rule_set_publish", "grant_jti": g.JTI, "vendor_user_id": p.Subject, "result": "success"}
 		if err := s.publishPlatform(ctx, tx, "billing.vendor_access.recorded", g.ApprovalID, p.Subject, data); err != nil {
 			return m, err
 		}

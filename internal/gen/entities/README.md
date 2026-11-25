@@ -17,6 +17,8 @@ mutations of entities it owns and ignores the rest of an op). `make lint-entitie
 | `tombstone` | Deletable master data; `del` and `undel` sync. |
 | `guarded` | Money or tax: only `append` facts; invariants are detectors, resolved by a new op (refund, credit note), never merged. |
 | `replicated_to` | Read-only replicas of another owner's reference entity (ADR-0014 A2.4): `[{service, purpose}]`. Applied by the same engine into tables only the projection role writes; never written, emitted or served as the entity; never `pii`; a `guarded` entity only with a stated `guarded_exception` (day_close, see the ADR note). Initial list, all to `orders`: `station`, `dining_table`, `outlet_settings`, `business_day`, `day_close`. |
+| `day_parent` | Owned by orders or billing, no `business_date`: the required `id` field (with a `ref`) whose row decides the business day, followed through parents until a row with `business_date` is reached (line, then order, then date; ADR-0005 A3.5). `order_line_cancel` names `order_line_id`. |
+| `outside_digest` | `true` for an orders or billing entity with neither `business_date` nor a required day parent (settings, tenant rule sets, day and shift closes, seating moves and merges, bill requests): it is not in the projection digest. `make lint-entities` refuses an owned entity with none of the three. |
 | `cloud_origin_only` | Written only by a cloud service through the gateway `emit` API. |
 | `fields.<name>` | `type`, `required`, `policy`, `description`, plus `group`, `values`, `order`, `ref`, `pii`, `doc_number`, bounds. |
 | `detectors` | Derived queries that raise exceptions (shared schema `common/exceptions.yaml`). |
@@ -48,7 +50,7 @@ which is why `check_present` and friends have no `member_id` or `device_id` fiel
 ## `pii`
 
 A field with `pii: true` travels in the op's `pii` object, outside the op hash (ADR-0002 S4). No money, tax or numbering
-field may be `pii` (the lint refuses it). Restaurant fields: guest and customer names, a takeaway phone.
+field may be `pii` (the lint refuses it). Restaurant fields: guest and customer names, a takeaway phone, the customer GSTIN (`check` and `bill`; the lint exempts `customer_gstin` from the tax-field name rule because it is the buyer identity).
 
 ## Stations are per outlet, the menu is per brand
 

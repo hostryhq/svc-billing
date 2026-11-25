@@ -210,7 +210,8 @@ func TestRevisionIsQueuedForTheDevices(t *testing.T) {
 	days, _ := f.svc.ListBusinessDays(f.as(tenantA), outletA, "", "", 10)
 	dayID := days.Items[0].Id
 	f.apply(tenantA, deviceA, "outlet:"+outletA, service.Mut{E: "day_close", ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7033", K: "insert", F: map[string]any{"business_day_id": dayID,
-		"z_number": "Z/2026-11-24/P1", "cutoff": fmt.Sprintf(`{"%s":2}`, deviceA), "gross_paise": 0, "total_paise": 0, "bill_count": 0, "tenders_json": "[]", "series_ranges_json": "[]"}})
+		"z_number": "Z/2026-11-24/P1", "cutoff": fmt.Sprintf(`{"%s":2}`, deviceA), "cutoff_at": f.clk.Now().UTC().Format(time.RFC3339Nano), "gross_paise": 0, "total_paise": 0, "bill_count": 0, "tenders_json": "[]", "series_ranges_json": "[]"}})
+	f.clk.Advance(time.Minute)
 	f.apply(tenantA, deviceB, "outlet:"+outletA, billMuts(billID(60), "BBB/2627/000001", 1200, true)...)
 	f.clk.Advance(time.Minute)
 	if n, err := f.svc.FlushRevisions(f.sys(tenantA)); err != nil || n != 1 {

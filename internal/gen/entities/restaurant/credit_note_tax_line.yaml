@@ -2,6 +2,7 @@ entity: credit_note_tax_line
 entity_v: 1
 owner: billing
 stream: outlet
+day_parent: credit_note_id
 policy: append
 guarded: true
 id:

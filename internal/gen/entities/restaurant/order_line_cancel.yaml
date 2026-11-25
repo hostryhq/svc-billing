@@ -2,6 +2,7 @@ entity: order_line_cancel
 entity_v: 1
 owner: orders
 stream: outlet
+day_parent: order_line_id
 policy: append
 id:
   rule: client_uuidv7

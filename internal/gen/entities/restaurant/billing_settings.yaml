@@ -2,6 +2,7 @@ entity: billing_settings
 entity_v: 1
 owner: billing
 stream: outlet
+outside_digest: true
 policy: lww
 id:
   rule: uuidv5

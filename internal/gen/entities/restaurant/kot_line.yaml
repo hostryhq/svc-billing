@@ -2,6 +2,7 @@ entity: kot_line
 entity_v: 1
 owner: orders
 stream: outlet
+day_parent: kot_id
 policy: rank
 id:
   rule: client_uuidv7
