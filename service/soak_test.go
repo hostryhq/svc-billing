@@ -57,6 +57,21 @@ func TestSplitPaymentRecordedTwiceRaisesPaymentsExceedTotal(t *testing.T) {
 	}
 }
 
+// After an offline day everything arrives in a burst, and the refund that corrects the double payment can be projected
+// before the second payment it refunds. The overpayment is still a finding, closed by that refund.
+func TestDoublePaymentIsRecordedEvenWhenItsRefundArrivesFirst(t *testing.T) {
+	f := newFixture(t)
+	ms := append(billMuts(billID(54), number(1), 1200, false), payMut("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f9d01", billID(54), "cash", 25200))
+	f.apply(tenantA, deviceA, "outlet:"+outletA, ms...)
+	f.apply(tenantA, deviceA, "outlet:"+outletA, payMut("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f9d02", billID(54), "upi", 25200))
+	f.apply(tenantA, deviceA, "outlet:"+outletA, service.Mut{E: "refund", ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f9d04", K: "insert",
+		F: map[string]any{"bill_id": billID(54), "payment_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f9d03", "amount_paise": 25200, "tender": "cash", "reason_code_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f5162", "business_date": "2026-11-24"}})
+	f.apply(tenantA, deviceB, "outlet:"+outletA, payMut("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f9d03", billID(54), "cash", 25200))
+	if ex := f.exceptions("payments_exceed_total"); len(ex) != 1 || ex[0].Status != gen.ExceptionStatusResolved {
+		t.Fatalf("exceptions %+v", ex)
+	}
+}
+
 // Payments that reach billing before their bill are counted when the bill arrives, and the overpayment is found then.
 func TestOverpaymentArrivingBeforeItsBillIsFound(t *testing.T) {
 	f := newFixture(t)

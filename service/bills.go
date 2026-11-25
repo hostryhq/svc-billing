@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/hostryhq/svc-billing/internal/gen"
 	"github.com/hostryhq/svc-billing/internal/tstamp"
@@ -126,6 +127,9 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 			return err
 		}
 		if err := ac.reverifyCreditsOf(ctx, rec); err != nil {
+			return err
+		}
+		if err := ac.checkPaymentsExceed(ctx, rec.Detail); err != nil { // payments that came before the bill
 			return err
 		}
 	}
@@ -408,23 +412,38 @@ func (ac *applyCtx) payments(ctx context.Context) error {
 
 // checkPaymentsExceed raises the detector when the money recorded for a bill is more than its total.
 func (ac *applyCtx) checkPaymentsExceed(ctx context.Context, d gen.BillDetail) error {
-	refunded, err := ac.refundedFor(ctx, d.Id)
+	if d.Paid.AmountPaise <= d.Total.AmountPaise {
+		return nil
+	}
+	// The money taken was more than the bill, whatever order the refund that corrects it arrived in: devices that could
+	// not hear each other each took the rest, and the refund may be projected before the second payment. The finding is
+	// always raised; a refund that already covers the excess closes it at once.
+	if err := ac.exception(ctx, "payments_exceed_total", gen.High, "bill", d.Id, d.BusinessDate.String(), map[string]any{"total_paise": d.Total.AmountPaise, "paid_paise": d.Paid.AmountPaise}); err != nil {
+		return err
+	}
+	refunded, last, err := ac.refundedFor(ctx, d.Id)
 	if err != nil {
 		return err
 	}
-	if net := d.Paid.AmountPaise - refunded; net > d.Total.AmountPaise {
-		return ac.exception(ctx, "payments_exceed_total", gen.High, "bill", d.Id, d.BusinessDate.String(), map[string]any{"total_paise": d.Total.AmountPaise, "paid_paise": net})
+	if d.Paid.AmountPaise-refunded <= d.Total.AmountPaise {
+		return ac.resolveException(ctx, "payments_exceed_total", d.Id, last)
 	}
 	return nil
 }
 
-func (ac *applyCtx) refundedFor(ctx context.Context, billID string) (int64, error) {
+// refundedFor is the sum of the refunds of a bill and the id of the latest of them.
+func (ac *applyCtx) refundedFor(ctx context.Context, billID string) (int64, string, error) {
 	rs, _, err := loadAll[gen.Refund](ctx, ac.tx, repository.Query{Kind: repository.KindRefund, K1: billID})
 	var n int64
+	var last string
+	var lastAt time.Time
 	for _, r := range rs {
 		n += r.Amount.AmountPaise
+		if last == "" || r.RefundedAt.Time.After(lastAt) {
+			last, lastAt = r.Id, r.RefundedAt.Time
+		}
 	}
-	return n, err
+	return n, last, err
 }
 
 // ---- refunds ----
@@ -470,7 +489,7 @@ func (ac *applyCtx) refunds(ctx context.Context) error {
 		}
 		if b, err := load[BillRec](ctx, ac.tx, repository.KindBill, r.BillId); err == nil {
 			net := b.Detail.Paid.AmountPaise
-			refunded, err := ac.refundedFor(ctx, r.BillId)
+			refunded, _, err := ac.refundedFor(ctx, r.BillId)
 			if err != nil {
 				return err
 			}
