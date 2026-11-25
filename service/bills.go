@@ -125,6 +125,9 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 		if err := ac.afterBill(ctx, rec, day, late); err != nil {
 			return err
 		}
+		if err := ac.reverifyCreditsOf(ctx, rec); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -532,21 +535,14 @@ func (ac *applyCtx) creditNotes(ctx context.Context) error {
 			}
 		}
 		// Enrich the lines from the original bill when it is known (item and category names, ids).
+		rec := CreditRec{Note: n, Calc: calc}
 		if orig, err := load[BillRec](ctx, ac.tx, repository.KindBill, n.BillId); err == nil {
-			for i, c := range calc.Credited {
-				if c.LineNo >= 1 && c.LineNo <= len(orig.Detail.Lines) {
-					ol := orig.Detail.Lines[c.LineNo-1]
-					nl := n.Lines[i]
-					nl.ItemId, nl.ItemName, nl.VariantName, nl.CategoryId, nl.CategoryName, nl.OrderLineId, nl.UnitPrice, nl.ModifierDelta = ol.ItemId, ol.ItemName, ol.VariantName, ol.CategoryId, ol.CategoryName, ol.OrderLineId, ol.UnitPrice, ol.ModifierDelta
-					n.Lines[i] = nl
-				}
-			}
+			enrichCredit(&rec, orig)
 		}
 		day, late, err := ac.lateDay(ctx, n.BusinessDate.String())
 		if err != nil {
 			return err
 		}
-		rec := CreditRec{Note: n, Calc: calc}
 		var verr error
 		if rec.Note.Verification, verr = ac.verifyCredit(ctx, rec); verr != nil {
 			return verr

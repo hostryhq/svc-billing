@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/hostryhq/go-common/ids"
 	gsync "github.com/hostryhq/go-common/sync"
@@ -126,6 +127,11 @@ func (ac *applyCtx) lateDay(ctx context.Context, date string) (gen.BusinessDay, 
 	}
 	if d.Status != gen.BusinessDayStatusClosed || d.Close == nil {
 		return d, false, nil
+	}
+	// The cutoff is the moment the closing device printed the Z, an RFC 3339 timestamp (the day-close op and the API
+	// carry it so); a document made after it is late. A version-vector map (the older reading) is still honoured.
+	if at, err := time.Parse(time.RFC3339Nano, d.Close.Cutoff); err == nil {
+		return d, ac.op.At.After(at), nil
 	}
 	var cut map[string]int64
 	if json.Unmarshal([]byte(d.Close.Cutoff), &cut) != nil {

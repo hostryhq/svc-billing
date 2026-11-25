@@ -184,7 +184,7 @@ func (ac *applyCtx) verifyCredit(ctx context.Context, rec CreditRec) (gen.Verifi
 	}
 	var cl []tax.CreditLine
 	for _, c := range rec.Calc.Credited {
-		cl = append(cl, tax.CreditLine{LineID: lineKey(c.LineNo-1, orig.Calc.LineIDs), QtyMilli: c.QtyMilli})
+		cl = append(cl, tax.CreditLine{LineID: lineKey(origLineIndex(orig, c), orig.Calc.LineIDs), QtyMilli: c.QtyMilli})
 	}
 	res, err := tax.CalculateCredit(taxBill(orig, rules, env.regime, roundOff, env.packClass), cl)
 	if err != nil {

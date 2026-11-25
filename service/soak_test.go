@@ -117,7 +117,7 @@ func TestCreditNoteBeforeItsBillIsVerifiedWhenTheBillArrives(t *testing.T) {
 	}
 }
 
-// twoLineBillMuts is billMuts with its 2 x Rs 240 split into two lines of 1 x Rs 240 (same totals).
+// twoLineBillMuts is billMuts with its 2 x Rs 240 split into 0.5 x Rs 240 and 1.5 x Rs 240 (same totals).
 func twoLineBillMuts(billID, number string) []service.Mut {
 	ms := billMuts(billID, number, 1200, true)
 	for i, m := range ms {
@@ -128,13 +128,13 @@ func twoLineBillMuts(billID, number string) []service.Mut {
 		for k, v := range m.F {
 			g[k] = v
 		}
-		g["qty_milli"], g["net_paise"] = 1000, 24000
+		g["qty_milli"], g["net_paise"] = 500, 12000
 		ms[i].F = g
 		second := map[string]any{}
 		for k, v := range g {
 			second[k] = v
 		}
-		second["line_no"] = 2
+		second["line_no"], second["qty_milli"], second["net_paise"] = 2, 1500, 36000
 		return append(ms, service.Mut{E: "bill_line", ID: billID[:30] + "0004", K: "insert", F: second})
 	}
 	return ms
