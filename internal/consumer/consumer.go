@@ -32,6 +32,8 @@ func Handler(repo *pg.Repo, svc *service.Service) inbox.Handler {
 	return func(ctx context.Context, tx *sql.Tx, e events.Envelope) error {
 		tctx := tenancy.With(ctx, tenancy.Context{TenantID: e.TenantID, ActorID: "billing"})
 		switch {
+		case e.Type == "sync.op.flagged":
+			return nil // a gateway notice about an op (sync's own fact), not an op: nothing for billing to project
 		case strings.HasPrefix(e.Type, "sync.op."):
 			op, err := parser.ParseEnvelope(e)
 			if err != nil {

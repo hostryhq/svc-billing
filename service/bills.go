@@ -548,7 +548,9 @@ func (ac *applyCtx) creditNotes(ctx context.Context) error {
 			if fstr(c.F, "credit_note_id") == m.ID {
 				t := taxLineFrom(c.F)
 				n.TaxLines = append(n.TaxLines, t)
-				calc.TaxablePaise += t.Taxable.AmountPaise
+				if t.GstApplies { // the value of a non-GST line is not taxable value
+					calc.TaxablePaise += t.Taxable.AmountPaise
+				}
 				calc.CGSTPaise += t.Cgst.AmountPaise
 				calc.SGSTPaise += t.Sgst.AmountPaise
 			}

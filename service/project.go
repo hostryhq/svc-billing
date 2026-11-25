@@ -132,7 +132,16 @@ func (ac *applyCtx) lateDay(ctx context.Context, date string) (gen.BusinessDay, 
 	// instants (protocol-v1 "Day close cutoff"). `cutoff` is a version vector and never a time; the older readings
 	// (a timestamp in cutoff, a vector compared by seq) apply only to a close stored without cutoff_at.
 	if !d.Close.CutoffAt.IsZero() {
-		return d, ac.op.At.After(d.Close.CutoffAt.Time), nil
+		if ac.op.At.After(d.Close.CutoffAt.Time) {
+			return d, true, nil
+		}
+		// Finalised before the close but not held by the closing device (a partitioned counter): the printed Z does not
+		// cover it, so it arrives in a revision. `cutoff` says what the Z covers (F22).
+		var cut map[string]int64
+		if json.Unmarshal([]byte(d.Close.Cutoff), &cut) == nil && cut != nil {
+			return d, ac.op.Seq > cut[ac.op.Origin], nil
+		}
+		return d, false, nil
 	}
 	if at, err := time.Parse(time.RFC3339Nano, d.Close.Cutoff); err == nil {
 		return d, ac.op.At.After(at), nil

@@ -100,6 +100,9 @@ func (ac *applyCtx) register(ctx context.Context, code, fy, number, docType, sou
 			r.Series.LastNumber = ptr(formatNumber(code, fy, r.Ranges[len(r.Ranges)-1][1]))
 		}
 		hs := holes(r.Ranges)
+		if kind == "manual_book" {
+			hs = nil // the pages of a paper book are typed in any order, some never: no gap detection (O2-18)
+		}
 		r.Series.GapCount = len(hs)
 		rec, h = *r, hs
 	})
