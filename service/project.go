@@ -113,7 +113,7 @@ func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
 
 // lateDay reports whether a document of this op with the business date falls on a day that was closed with a cutoff
 // that did not cover it (A1.1 item 5), and returns that day.
-func (ac *applyCtx) lateDay(ctx context.Context, date string) (gen.BusinessDay, bool, error) {
+func (ac *applyCtx) lateDay(ctx context.Context, date, number string) (gen.BusinessDay, bool, error) {
 	var d gen.BusinessDay
 	doc, err := ac.tx.GetDoc(ctx, repository.KindBusinessDay, dayID(ac.outlet, date))
 	if err == repository.ErrNotFound {
@@ -141,7 +141,9 @@ func (ac *applyCtx) lateDay(ctx context.Context, date string) (gen.BusinessDay, 
 		if json.Unmarshal([]byte(d.Close.Cutoff), &cut) == nil && cut != nil {
 			return d, ac.op.Seq > cut[ac.op.Origin], nil
 		}
-		return d, false, nil
+		// No usable vector (a client that sends a time in `cutoff`): the Z's own series ranges say what it printed. A numbered
+		// document of a series the Z does not list, or above its last number, was not in it (F22).
+		return d, !zCovers(d.Close.SeriesRanges, number), nil
 	}
 	if at, err := time.Parse(time.RFC3339Nano, d.Close.Cutoff); err == nil {
 		return d, ac.op.At.After(at), nil
@@ -231,4 +233,21 @@ func (ac *applyCtx) resolveException(ctx context.Context, kind, subjectID, ref s
 	ex.ResolvedByRef = &ref
 	d.K2, d.Body = "resolved", marshalDoc(ex)
 	return ac.tx.SaveDoc(ctx, d)
+}
+
+// zCovers reports whether the series ranges a Z printed hold the document number. An unnumbered document, or a number that
+// does not parse, is taken as covered (nothing to compare).
+func zCovers(ranges []gen.SeriesRange, number string) bool {
+	code, _, n, ok := splitNumber(number)
+	if !ok {
+		return true
+	}
+	for _, r := range ranges {
+		c, _, first, ok1 := splitNumber(r.FirstNumber)
+		_, _, last, ok2 := splitNumber(r.LastNumber)
+		if c == code && ok1 && ok2 && n >= first && n <= last {
+			return true
+		}
+	}
+	return false
 }

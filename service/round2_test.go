@@ -85,3 +85,48 @@ func TestManualBookNeverOpensAGap(t *testing.T) {
 		t.Fatalf("exceptions %+v", ex)
 	}
 }
+
+// F22 as the soak ran it: the client sends `cutoff` as a timestamp (no vector) and cutoff_at is the close op's time. A bill
+// of a series the Z does not list, finalised before the close on a partitioned counter and arriving after the Z, is late
+// and is sealed into a revision; a bill inside a listed range is not. A later arrival makes R2.
+func TestPartitionedBillOfAnUnlistedSeriesBecomesARevisionAndAnotherMakesR2(t *testing.T) {
+	f := newFixture(t)
+	f.apply(tenantA, deviceA, "outlet:"+outletA, closeMuts("2026-11-24", nil)...)
+	f.apply(tenantA, deviceA, "outlet:"+outletA, billMuts(billID(80), "AAA/2627/000001", 1200, true)...)
+	days, _ := f.svc.ListBusinessDays(f.as(tenantA), outletA, "", "", 10)
+	dayID := days.Items[0].Id
+	before := f.clk.Now()
+	f.clk.Advance(time.Minute)
+	closeAt := f.clk.Now().UTC().Format(time.RFC3339Nano)
+	f.apply(tenantA, deviceA, "outlet:"+outletA, service.Mut{E: "day_close", ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7044", K: "insert", F: map[string]any{"business_day_id": dayID,
+		"z_number": "Z/2026-11-24/AAA", "cutoff": closeAt, "cutoff_at": closeAt, "gross_paise": 48000, "total_paise": 50400, "bill_count": 1, "tenders_json": "[]",
+		"series_ranges_json": `[{"series_code":"AAA","doc_type":"tax_invoice","first_number":"AAA/2627/000001","last_number":"AAA/2627/000001","count":1}]`}})
+	f.clk.Advance(time.Minute)
+	late := func(seq int64, id, num string, at time.Time) {
+		t.Helper()
+		op := service.Op{Tenant: tenantA, Origin: deviceB, Stream: "outlet:" + outletA, Seq: seq, Hash: fmt.Sprintf("h%d", seq), HLC: fmt.Sprintf("%016x", at.UnixMilli()<<16),
+			Intent: "test", At: at, Actor: member, Muts: int64s(billMuts(id, num, 1200, true))}
+		if err := f.svc.Project(f.sys(tenantA), op); err != nil {
+			t.Fatal(err)
+		}
+	}
+	late(1, billID(81), "AAE/2627/000001", before)
+	if !f.bill(t, billID(81)).Late || f.bill(t, billID(80)).Late {
+		t.Fatal("a bill of a series the Z does not list is late; one inside its range is not")
+	}
+	late(2, billID(82), "AAE/2627/000002", before)
+	f.clk.Advance(time.Minute)
+	if n, err := f.svc.FlushRevisions(f.sys(tenantA)); err != nil || n != 1 {
+		t.Fatalf("flush %d %v", n, err)
+	}
+	f.clk.Advance(time.Hour)
+	late(3, billID(83), "AAE/2627/000003", f.clk.Now())
+	f.clk.Advance(time.Minute)
+	if n, err := f.svc.FlushRevisions(f.sys(tenantA)); err != nil || n != 1 {
+		t.Fatalf("second flush %d %v", n, err)
+	}
+	revs, err := f.svc.ListBusinessDayRevisions(f.as(tenantA), dayID, "", 10)
+	if err != nil || len(revs.Items) != 2 || revs.Items[0].AddedTotals.BillCount != 2 || revs.Items[1].AddedTotals.BillCount != 1 || revs.Items[1].DisplayNumber != "Z/2026-11-24/AAA/R2" {
+		t.Fatalf("revisions %+v %v", revs, err)
+	}
+}

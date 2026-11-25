@@ -100,7 +100,7 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 		if rec.Calc.FinancialYear == "" {
 			rec.Calc.FinancialYear = fy
 		}
-		day, late, err := ac.lateDay(ctx, d.BusinessDate.String())
+		day, late, err := ac.lateDay(ctx, d.BusinessDate.String(), d.Number)
 		if err != nil {
 			return err
 		}
@@ -357,7 +357,7 @@ func (ac *applyCtx) payments(ctx context.Context) error {
 			continue
 		}
 		date := p.BusinessDate.String()
-		day, late, err := ac.lateDay(ctx, date)
+		day, late, err := ac.lateDay(ctx, date, "")
 		if err != nil {
 			return err
 		}
@@ -467,7 +467,7 @@ func (ac *applyCtx) refunds(ctx context.Context) error {
 			continue
 		}
 		date := r.BusinessDate.String()
-		day, late, err := ac.lateDay(ctx, date)
+		day, late, err := ac.lateDay(ctx, date, "")
 		if err != nil {
 			return err
 		}
@@ -560,7 +560,7 @@ func (ac *applyCtx) creditNotes(ctx context.Context) error {
 		if orig, err := load[BillRec](ctx, ac.tx, repository.KindBill, n.BillId); err == nil {
 			enrichCredit(&rec, orig)
 		}
-		day, late, err := ac.lateDay(ctx, n.BusinessDate.String())
+		day, late, err := ac.lateDay(ctx, n.BusinessDate.String(), n.Number)
 		if err != nil {
 			return err
 		}
