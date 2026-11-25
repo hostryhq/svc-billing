@@ -22,14 +22,14 @@ docs/              operations-status.md (every operationId), notes.md (choices, 
 ## Run
 Config is environment only (`internal/config`): `BILLING_DB_APP_DSN`, `BILLING_DB_GLOBAL_DSN`, optional `BILLING_DB_RELAY_DSN`,
 `BILLING_TENANT_JWKS`, `BILLING_VENDOR_JWKS`, `BILLING_SERVICE_KEYS`, `BILLING_GRANT_KEYS` (URLs or file paths, never values),
-`NATS_URL` and `NATS_SEED_FILE` for the bus, `BILLING_PUBLISH_LEAD` (default 24h), `BILLING_ORDERS_URL`. Roles are created by
+`NATS_URL` and `NATS_SEED_FILE` for the bus, `BILLING_PUBLISH_LEAD` (default 24h), `BILLING_ORDERS_URL`, `BILLING_GATEWAY_URL` (sync gateway, `POST /internal/v1/emit`; unset: settings routes answer 503 `emit.unavailable` and queued emissions wait), `BILLING_SERVICE_KEY_FILE`. Roles are created by
 `scripts/provision-roles.sql` (deployment owns it); `billing migrate` applies the schema as the migrator role.
 
 ## Test
 ```
-make test         # unit, the 64 tax vectors, and the contract suite against the double (no database)
+make test         # unit, the 65 tax vectors, and the contract suite against the double (no database)
 make dev-up       # Postgres from ../infra/dev, compose project "billing", port 55446
 make integration  # real service on Postgres: shared contract suite, bus projection, row-level security, roles
-make gen          # regenerate internal/gen, seed examples and tax vectors from ../api-specs (records the commit)
+make gen          # regenerate internal/gen, seed examples and tax vectors from ../api-specs (override API_SPECS_DIR; records the commit)
 ```
 For local work against sibling checkouts use an uncommitted `go.work` (go-common, go-auth, api-specs).
