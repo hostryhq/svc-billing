@@ -226,7 +226,7 @@
    "entities": [
     {
      "entity": "bill",
-     "hash": "bf395d74aae34b4d748b945cf0fe4c8b6266afbbb0d6b6da3f6dc94e95bd3c4e",
+     "hash": "2c152f6c6717075f0fd0fdc563048f077d23c11b00f09c3d5731da012498e34b",
      "row_count": 1
     },
     {
@@ -236,7 +236,7 @@
     }
    ],
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
-   "state_hash": "43f2a702dcf3df58a3cee4a98592984c64e6c8a0639ae20735a7f0689e9ecdd6"
+   "state_hash": "aee7d30b56d637c0b9bb9b7e2d607bee982387907ae434e74239a84e52e3b78b"
   }
  },
  "getBusinessDay": {

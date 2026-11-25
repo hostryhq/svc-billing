@@ -119,7 +119,7 @@ fields:
     group: customer
     pii: true
     max_length: 15
-    description: 'Guest GSTIN, validated. Personal data: travels in the pii object of the op and is erased by sync.pii.erase.'
+    description: 'Guest GSTIN, validated. Personal data: travels in the pii object of the op, is served to same-outlet pos, waiter, personal and hub devices and never to a kds (ADR-0014 A3.1), and is erased by sync.pii.erase.'
   eco_channel:
     type: enum
     values:

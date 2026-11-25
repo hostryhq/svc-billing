@@ -43,5 +43,12 @@
         "business_date": "2026-11-24"
       }
     }
+  },
+  "commitments": {
+    "bill": {
+      "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001": {
+        "customer_name": "fb926b59239c6d646b19799ab4f0c2196c3b9544e1901c9f6873017c570d2766"
+      }
+    }
   }
 }

@@ -27,6 +27,21 @@ var examplesJSON []byte
 //go:embed billing-digest-day.json
 var digestDayJSON []byte
 
+//go:embed digest-row.vectors.v1.json
+var digestRowVectorsJSON []byte
+
+// DigestRowVectors returns the digest_row vectors of the shared sync conformance file (api-specs sync/conformance/v1.json).
+func DigestRowVectors() []byte { return digestRowVectorsJSON }
+
+// piiOf marks the fields a commitments map covers as personal data.
+func piiOf(c map[string]string) map[string]bool {
+	m := map[string]bool{}
+	for k := range c {
+		m[k] = true
+	}
+	return m
+}
+
 //go:embed vendor-grant.vectors.v1.json
 var grantVectorsJSON []byte
 
@@ -261,16 +276,17 @@ func dayRows(ctx context.Context, tx repository.Tx, ex map[string]example, world
 // digestDay stores the canonical row texts of the digest-day fixture (api-specs examples/digests), the rows the world holds.
 func digestDay(ctx context.Context, tx repository.Tx) error {
 	var fx struct {
-		OutletID string                               `json:"outlet_id"`
-		Date     string                               `json:"business_date"`
-		Rows     map[string]map[string]map[string]any `json:"rows"`
+		OutletID string                                  `json:"outlet_id"`
+		Date     string                                  `json:"business_date"`
+		Rows     map[string]map[string]map[string]any    `json:"rows"`
+		Commits  map[string]map[string]map[string]string `json:"commitments"`
 	}
 	if err := json.Unmarshal(digestDayJSON, &fx); err != nil {
 		return err
 	}
 	for entity, rows := range fx.Rows {
 		for id, fields := range rows {
-			text, err := service.DigestRowText(id, fields, nil)
+			text, err := service.DigestRowText(id, fields, piiOf(fx.Commits[entity][id]), fx.Commits[entity][id])
 			if err != nil {
 				return err
 			}
@@ -396,4 +412,15 @@ func DigestDayRows() map[string]map[string]map[string]any {
 // ExampleDigest is the 200 example of getBillingProjectionDigest.
 func ExampleDigest() gen.ProjectionDigest {
 	return resp[gen.ProjectionDigest](examples(), "getBillingProjectionDigest")
+}
+
+// DigestDayCommitments are the commitments of the pii fields of the digest-day rows, by entity, row id and field.
+func DigestDayCommitments() map[string]map[string]map[string]string {
+	var fx struct {
+		Commits map[string]map[string]map[string]string `json:"commitments"`
+	}
+	if err := json.Unmarshal(digestDayJSON, &fx); err != nil {
+		panic(err)
+	}
+	return fx.Commits
 }

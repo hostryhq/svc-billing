@@ -101,6 +101,24 @@ fields:
     required: false
     policy: immutable
     description: Tender the money went back by, or adjusted against another bill.
+  customer_name:
+    type: string
+    required: false
+    policy: immutable
+    pii: true
+    max_length: 60
+    description: 'Buyer name, copied from the original bill. Personal data (ADR-0014 A3.1): travels in the pii object of the op, is
+      served to same-outlet pos, waiter, personal and hub devices and never to a kds, and is erased by sync.pii.erase; the digests
+      cover its commitment only.'
+  customer_gstin:
+    type: string
+    required: false
+    policy: immutable
+    pii: true
+    max_length: 15
+    description: 'Buyer GSTIN, copied from the original bill, so the credit note of a B2B invoice can be issued and reprinted on any
+      staff device of the outlet with no internet (ADR-0014 A3.1). Personal data (a sole proprietor GSTIN identifies a person); handled
+      as customer_name.'
 detectors:
 - tax verification
 - gap in the series register

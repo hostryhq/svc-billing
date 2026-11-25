@@ -344,7 +344,20 @@ func TestProjectionDigestOfProjectedRowsEqualsTheContractExample(t *testing.T) {
 			muts = append(muts, service.Mut{E: entity, ID: id, K: "insert", F: f64})
 		}
 	}
-	f.apply(tenantA, deviceA, "outlet:"+outletA, muts...)
+	// the pii of the world's rows are not held: only their commitments are, and the digest covers those
+	commits := gsync.PIIC{}
+	for e, rows := range seed.DigestDayCommitments() {
+		commits[e] = map[string]map[string]string{}
+		for id, c := range rows {
+			commits[e][id] = c
+		}
+	}
+	key := tenantA + deviceA + "outlet:" + outletA
+	f.seq[key]++
+	if err := f.svc.Project(f.sys(tenantA), service.Op{Tenant: tenantA, Origin: deviceA, Stream: "outlet:" + outletA, Seq: f.seq[key], Hash: "hday",
+		HLC: fmt.Sprintf("%016x", f.clk.Now().UnixMilli()<<16), Intent: "test", At: f.clk.Now(), Actor: member, Muts: muts, PIICommits: commits}); err != nil {
+		t.Fatal(err)
+	}
 	got, err := f.svc.ProjectionDigest(f.as(tenantA), outletA, "2026-11-24")
 	if err != nil {
 		t.Fatal(err)

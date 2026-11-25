@@ -82,7 +82,7 @@ fields:
     pii: true
     max_length: 15
     description: 'Guest GSTIN, copied from the check at finalisation. Personal data (a sole proprietor GSTIN identifies a person):
-      travels in the pii object of the op and is erased by sync.pii.erase; the printed invoice and the tax totals are untouched.'
+      travels in the pii object of the op, is served to same-outlet pos, waiter, personal and hub devices and never to a kds (ADR-0014 A3.1), and is erased by sync.pii.erase; the printed invoice and the tax totals are untouched.'
   business_date:
     type: date
     required: true

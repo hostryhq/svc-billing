@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"sort"
+	"strings"
 
 	gsync "github.com/hostryhq/go-common/sync"
 
@@ -31,9 +32,10 @@ var parentOrder = []string{"order_id", "check_id", "kot_id", "bill_id", "credit_
 
 func digestDocID(entity, id string) string { return entity + "|" + id }
 
-// DigestRowText is the canonical row text of sha256-canon-v1: the RFC 8785 JSON (integers only) of an object holding id
-// and every field the row has set, without null fields and without pii fields.
-func DigestRowText(id string, fields map[string]any, pii map[string]bool) (string, error) {
+// DigestRowText is the canonical row text of sha256-canon-v1: the RFC 8785 JSON (integers only) of an object holding id,
+// every non-pii field the row has set (no null fields) and, for each pii field the row holds a commitment for, the member
+// "~c:<field>" whose value is that commitment (hex). A pii value is never part of it, so erasing one leaves the text unchanged.
+func DigestRowText(id string, fields map[string]any, pii map[string]bool, commits map[string]string) (string, error) {
 	o := map[string]any{"id": id}
 	for k, v := range fields {
 		if v == nil || pii[k] {
@@ -41,8 +43,29 @@ func DigestRowText(id string, fields map[string]any, pii map[string]bool) (strin
 		}
 		o[k] = v
 	}
+	for f, c := range commits {
+		if pii[f] && c != "" {
+			o["~c:"+f] = c
+		}
+	}
 	b, err := gsync.CanonicalJSON(o)
 	return string(b), err
+}
+
+// commitsOf returns the commitments a stored row text holds (its "~c:" members), so a later op that touches the row without
+// carrying its personal data keeps them. Commitments survive erasure; only values do not.
+func commitsOf(text string) map[string]string {
+	var m map[string]any
+	out := map[string]string{}
+	if json.Unmarshal([]byte(text), &m) != nil {
+		return out
+	}
+	for k, v := range m {
+		if c, ok := v.(string); ok && strings.HasPrefix(k, "~c:") {
+			out[strings.TrimPrefix(k, "~c:")] = c
+		}
+	}
+	return out
 }
 
 // DigestRowDoc is the digest document of one row text.
@@ -90,13 +113,25 @@ func (ac *applyCtx) digestRows(ctx context.Context, reg *gsync.Registry, rows []
 		for n, f := range ent.Fields {
 			pii[n] = f.PII
 		}
-		text, err := DigestRowText(r.Key.ID, r.Fields, pii)
-		if err != nil {
-			return err
-		}
+		// The commitments are those the op carries for this row, under those the stored text already holds: every pii field of
+		// billing's rows is immutable, so the first commitment stands.
+		commits := map[string]string{}
 		outlet, date, parent := ac.outlet, fstr(r.Fields, "business_date"), ""
 		if old, err := ac.tx.GetDoc(ctx, KindDigestRow, docID); err == nil {
 			outlet = old.Outlet
+			var oldText string
+			if json.Unmarshal(old.Body, &oldText) == nil {
+				commits = commitsOf(oldText)
+			}
+		}
+		for f, c := range ac.op.PIICommits[r.Key.Entity][r.Key.ID] {
+			if _, kept := commits[f]; !kept {
+				commits[f] = c
+			}
+		}
+		text, err := DigestRowText(r.Key.ID, r.Fields, pii, commits)
+		if err != nil {
+			return err
 		}
 		if parentField != "" {
 			parent = digestDocID(parentEntities[parentField], fstr(r.Fields, parentField))
