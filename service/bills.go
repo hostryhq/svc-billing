@@ -115,8 +115,11 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 		}
 		created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindBill, ID: m.ID, Outlet: ac.outlet, Date: d.BusinessDate.String(), Sort: ac.at().String(),
 			K1: d.Number, K2: deref(d.CheckId), Body: marshalDoc(rec)})
-		if err != nil || !created {
+		if err != nil {
 			return err
+		}
+		if !created {
+			continue
 		}
 		_ = running
 		if err := ac.afterBill(ctx, rec, day, late); err != nil {
@@ -204,7 +207,7 @@ func (ac *applyCtx) afterBill(ctx context.Context, rec BillRec, day gen.Business
 		if l.OrderLineId == nil {
 			continue
 		}
-		created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: "line_claim", ID: *l.OrderLineId, Outlet: ac.outlet, K1: d.Id})
+		created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: "line_claim", ID: *l.OrderLineId, Outlet: ac.outlet, K1: d.Id, Body: marshalDoc(map[string]string{"bill_id": d.Id})})
 		if err != nil {
 			return err
 		}
@@ -340,8 +343,11 @@ func (ac *applyCtx) payments(ctx context.Context) error {
 		}
 		created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindPayment, ID: m.ID, Outlet: ac.outlet, Date: p.BusinessDate.String(), Sort: ac.at().String(),
 			K1: p.BillId, K2: string(p.Tender), Body: marshalDoc(p)})
-		if err != nil || !created {
+		if err != nil {
 			return err
+		}
+		if !created {
+			continue
 		}
 		date := p.BusinessDate.String()
 		day, late, err := ac.lateDay(ctx, date)
@@ -432,8 +438,11 @@ func (ac *applyCtx) refunds(ctx context.Context) error {
 			r.PaymentId = &v
 		}
 		created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindRefund, ID: m.ID, Outlet: ac.outlet, Date: r.BusinessDate.String(), Sort: ac.at().String(), K1: r.BillId, Body: marshalDoc(r)})
-		if err != nil || !created {
+		if err != nil {
 			return err
+		}
+		if !created {
+			continue
 		}
 		date := r.BusinessDate.String()
 		day, late, err := ac.lateDay(ctx, date)
@@ -543,8 +552,11 @@ func (ac *applyCtx) creditNotes(ctx context.Context) error {
 			return verr
 		}
 		created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindCreditNote, ID: m.ID, Outlet: ac.outlet, Date: n.BusinessDate.String(), Sort: ac.at().String(), K1: n.BillId, Body: marshalDoc(rec)})
-		if err != nil || !created {
+		if err != nil {
 			return err
+		}
+		if !created {
+			continue
 		}
 		if err := ac.afterCredit(ctx, rec, day, late); err != nil {
 			return err

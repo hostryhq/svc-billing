@@ -6,6 +6,7 @@ package mem
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -369,7 +370,13 @@ func (m memSync) Voided(_ context.Context, _ string, refs []gsync.OpRef) (map[gs
 
 func dk(kind, id string) string { return kind + "\x00" + id }
 
+// errNullBody mirrors the NOT NULL constraint on docs.body in Postgres.
+var errNullBody = errors.New("mem: doc body is NULL (docs.body is NOT NULL)")
+
 func (x *tx) PutDoc(_ context.Context, d repository.Doc) (bool, error) {
+	if d.Body == nil {
+		return false, errNullBody
+	}
 	k := dk(d.Kind, d.ID)
 	if _, ok := x.t.docs[k]; ok {
 		return false, nil
@@ -379,6 +386,9 @@ func (x *tx) PutDoc(_ context.Context, d repository.Doc) (bool, error) {
 }
 
 func (x *tx) SaveDoc(_ context.Context, d repository.Doc) error {
+	if d.Body == nil {
+		return errNullBody
+	}
 	x.t.docs[dk(d.Kind, d.ID)] = d
 	return nil
 }
