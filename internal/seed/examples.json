@@ -23,7 +23,7 @@
    "calc_v": 1,
    "created_at": "2026-11-24T13:05:11.120Z",
    "effective_date": "2026-12-15",
-   "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7042",
+   "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",
    "name": "GST restaurant services 2026 B",
    "review_status": "unreviewed",
    "revision": 1,
@@ -52,7 +52,7 @@
   "response": {
    "business_date": "2026-11-24",
    "calc_v": 1,
-   "cashier_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+   "cashier_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
    "check_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f6001",
    "credited": {
     "amount_paise": 0,
@@ -107,7 +107,7 @@
     "amount_paise": 0,
     "currency": "INR"
    },
-   "number": "AAA/2627/000123",
+   "number": "A7K/2627/000001",
    "order_type": "dine_in",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "packing_charge": {
@@ -133,7 +133,7 @@
      },
      "device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
      "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7021",
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "paid_at": "2026-11-24T13:05:11.120Z",
      "shift_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7051",
      "target_kind": "bill",
@@ -149,7 +149,7 @@
     "amount_paise": 0,
     "currency": "INR"
    },
-   "ruleset_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+   "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
    "service_charge": {
     "amount_paise": 0,
     "currency": "INR"
@@ -193,7 +193,7 @@
      "amount_paise": 0,
      "currency": "INR"
     },
-    "ruleset_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+    "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
     "status": "verified"
    }
   }
@@ -227,7 +227,7 @@
     {
      "entity": "bill",
      "hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-     "row_count": 12
+     "row_count": 1
     }
    ],
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
@@ -241,21 +241,21 @@
    "close": {
     "closed_at": "2026-11-24T13:05:11.120Z",
     "closing_device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
-    "closing_member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+    "closing_member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
     "cutoff": "{\"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e\":812}",
     "series_ranges": [
      {
-      "count": 12,
+      "count": 1,
       "doc_type": "tax_invoice",
-      "first_number": "AAA/2627/000112",
-      "last_number": "AAA/2627/000123",
-      "series_code": "AAA"
+      "first_number": "A7K/2627/000001",
+      "last_number": "A7K/2627/000001",
+      "series_code": "A7K"
      }
     ],
     "totals": {
-     "bill_count": 12,
+     "bill_count": 1,
      "cgst": {
-      "amount_paise": 12600,
+      "amount_paise": 1200,
       "currency": "INR"
      },
      "credit_note_count": 0,
@@ -268,7 +268,7 @@
       "currency": "INR"
      },
      "gross": {
-      "amount_paise": 504000,
+      "amount_paise": 48000,
       "currency": "INR"
      },
      "internal_consumption": {
@@ -276,7 +276,7 @@
       "currency": "INR"
      },
      "net": {
-      "amount_paise": 504000,
+      "amount_paise": 48000,
       "currency": "INR"
      },
      "non_gst": {
@@ -296,27 +296,27 @@
       "currency": "INR"
      },
      "sgst": {
-      "amount_paise": 12600,
+      "amount_paise": 1200,
       "currency": "INR"
      },
      "tenders": [
       {
        "amount": {
-        "amount_paise": 504000,
+        "amount_paise": 48000,
         "currency": "INR"
        },
-       "count": 12,
+       "count": 1,
        "tender": "cash"
       }
      ],
      "total": {
-      "amount_paise": 529200,
+      "amount_paise": 50400,
       "currency": "INR"
      }
     },
     "z_number": "Z/2026-11-24/P1"
    },
-   "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7031",
+   "id": "781c2cf3-5c86-5dca-8c74-ef356237bbac",
    "late_document_count": 0,
    "opened_at": "2026-11-24T13:05:11.120Z",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
@@ -344,7 +344,6 @@
      "qty_milli": 24000
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24"
   }
@@ -354,7 +353,7 @@
   "response": {
    "bill_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001",
    "bill_invoice_date": "2026-11-24",
-   "bill_number": "AAA/2627/000123",
+   "bill_number": "A7K/2627/000001",
    "business_date": "2026-11-24",
    "calc_v": 1,
    "created_at": "2026-11-24T13:05:11.120Z",
@@ -395,8 +394,8 @@
      "variant_name": "Full"
     }
    ],
-   "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
-   "number": "AAB/2627/000004",
+   "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
+   "number": "A7M/2627/000001",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "refund_tender": "cash",
    "round_off": {
@@ -441,7 +440,7 @@
      "amount_paise": 0,
      "currency": "INR"
     },
-    "ruleset_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+    "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
     "status": "verified"
    }
   }
@@ -457,9 +456,9 @@
      "revision_count": 0,
      "status": "closed",
      "totals": {
-      "bill_count": 12,
+      "bill_count": 1,
       "cgst": {
-       "amount_paise": 12600,
+       "amount_paise": 1200,
        "currency": "INR"
       },
       "credit_note_count": 0,
@@ -472,7 +471,7 @@
        "currency": "INR"
       },
       "gross": {
-       "amount_paise": 504000,
+       "amount_paise": 48000,
        "currency": "INR"
       },
       "internal_consumption": {
@@ -480,7 +479,7 @@
        "currency": "INR"
       },
       "net": {
-       "amount_paise": 504000,
+       "amount_paise": 48000,
        "currency": "INR"
       },
       "non_gst": {
@@ -500,27 +499,26 @@
        "currency": "INR"
       },
       "sgst": {
-       "amount_paise": 12600,
+       "amount_paise": 1200,
        "currency": "INR"
       },
       "tenders": [
        {
         "amount": {
-         "amount_paise": 504000,
+         "amount_paise": 48000,
          "currency": "INR"
         },
-        "count": 12,
+        "count": 1,
         "tender": "cash"
        }
       ],
       "total": {
-       "amount_paise": 529200,
+       "amount_paise": 50400,
        "currency": "INR"
       }
      }
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24"
   }
@@ -533,10 +531,10 @@
    "items": [
     {
      "at": "2026-11-24T13:05:11.120Z",
-     "bill_number": "AAA/2627/000123",
+     "bill_number": "A7K/2627/000001",
      "business_date": "2026-11-24",
      "kind": "discount",
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "reason_code_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f5164",
      "subject_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001",
      "value": {
@@ -546,7 +544,6 @@
      "within_allowance": false
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24",
    "totals": {
@@ -565,17 +562,16 @@
    "from": "2026-11-24",
    "items": [
     {
-     "bill_count": 4,
+     "bill_count": 1,
      "business_date": "2026-11-24",
      "hour": 13,
      "net": {
-      "amount_paise": 168000,
+      "amount_paise": 48000,
       "currency": "INR"
      },
      "order_type": "dine_in"
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24"
   }
@@ -601,7 +597,6 @@
      "variant_name": "Full"
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24"
   }
@@ -655,8 +650,8 @@
   "world": "base",
   "response": {
    "as_of": "2026-11-24T13:05:11.120Z",
-   "count": 123,
-   "last_number": "AAA/2627/000123",
+   "count": 1,
+   "last_number": "A7K/2627/000001",
    "series_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6c"
   }
  },
@@ -667,16 +662,15 @@
    "from": "2026-11-24",
    "items": [
     {
-     "bill_count": 12,
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "bill_count": 1,
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "net": {
-      "amount_paise": 504000,
+      "amount_paise": 48000,
       "currency": "INR"
      },
      "role": "cashier"
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24"
   }
@@ -687,7 +681,7 @@
    "calc_v": 1,
    "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
    "effective_date": "2026-04-01",
-   "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+   "id": "9107573a-9de6-569a-a692-fb53d5d4c799",
    "name": "GST restaurant services 2026",
    "published_at": "2026-11-24T13:05:11.120Z",
    "review_status": "unreviewed",
@@ -713,7 +707,7 @@
    "calc_v": 1,
    "created_at": "2026-11-24T13:05:11.120Z",
    "effective_date": "2026-12-15",
-   "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7042",
+   "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",
    "name": "GST restaurant services 2026 B",
    "review_status": "unreviewed",
    "revision": 1,
@@ -742,15 +736,15 @@
    "items": [
     {
      "bill_cgst": {
-      "amount_paise": 12600,
+      "amount_paise": 1200,
       "currency": "INR"
      },
      "bill_sgst": {
-      "amount_paise": 12600,
+      "amount_paise": 1200,
       "currency": "INR"
      },
      "bill_taxable": {
-      "amount_paise": 504000,
+      "amount_paise": 48000,
       "currency": "INR"
      },
      "credit_cgst": {
@@ -770,20 +764,19 @@
      "tax_class": "fnb_standard"
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24",
    "totals": {
     "net_cgst": {
-     "amount_paise": 12600,
+     "amount_paise": 1200,
      "currency": "INR"
     },
     "net_sgst": {
-     "amount_paise": 12600,
+     "amount_paise": 1200,
      "currency": "INR"
     },
     "net_taxable": {
-     "amount_paise": 504000,
+     "amount_paise": 48000,
      "currency": "INR"
     },
     "non_gst": {
@@ -801,14 +794,14 @@
    "items": [
     {
      "net": {
-      "amount_paise": 529200,
+      "amount_paise": 50400,
       "currency": "INR"
      },
      "paid": {
-      "amount_paise": 529200,
+      "amount_paise": 50400,
       "currency": "INR"
      },
-     "payment_count": 12,
+     "payment_count": 1,
      "refunded": {
       "amount_paise": 0,
       "currency": "INR"
@@ -816,7 +809,6 @@
      "tender": "cash"
     }
    ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0",
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
    "to": "2026-11-24"
   }
@@ -851,7 +843,7 @@
     {
      "business_date": "2026-11-24",
      "calc_v": 1,
-     "cashier_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "cashier_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "check_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f6001",
      "credited": {
       "amount_paise": 0,
@@ -864,7 +856,7 @@
      "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001",
      "invoice_date": "2026-11-24",
      "late": false,
-     "number": "AAA/2627/000123",
+     "number": "A7K/2627/000001",
      "order_type": "dine_in",
      "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
      "paid": {
@@ -877,7 +869,7 @@
       "amount_paise": 0,
       "currency": "INR"
      },
-     "ruleset_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+     "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
      "source_kind": "check",
      "total": {
       "amount_paise": 50400,
@@ -890,32 +882,31 @@
        "amount_paise": 0,
        "currency": "INR"
       },
-      "ruleset_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+      "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
       "status": "verified"
      }
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listBusinessDayRevisions": {
-  "world": "base",
+  "world": "late-revision",
   "response": {
    "items": [
     {
      "added_series_ranges": [
       {
-       "count": 12,
+       "count": 1,
        "doc_type": "tax_invoice",
-       "first_number": "AAA/2627/000112",
-       "last_number": "AAA/2627/000123",
-       "series_code": "AAA"
+       "first_number": "A7K/2627/000001",
+       "last_number": "A7K/2627/000001",
+       "series_code": "A7K"
       }
      ],
      "added_totals": {
-      "bill_count": 12,
+      "bill_count": 1,
       "cgst": {
-       "amount_paise": 12600,
+       "amount_paise": 1200,
        "currency": "INR"
       },
       "credit_note_count": 0,
@@ -928,7 +919,7 @@
        "currency": "INR"
       },
       "gross": {
-       "amount_paise": 504000,
+       "amount_paise": 48000,
        "currency": "INR"
       },
       "internal_consumption": {
@@ -936,7 +927,7 @@
        "currency": "INR"
       },
       "net": {
-       "amount_paise": 504000,
+       "amount_paise": 48000,
        "currency": "INR"
       },
       "non_gst": {
@@ -956,36 +947,35 @@
        "currency": "INR"
       },
       "sgst": {
-       "amount_paise": 12600,
+       "amount_paise": 1200,
        "currency": "INR"
       },
       "tenders": [
        {
         "amount": {
-         "amount_paise": 504000,
+         "amount_paise": 48000,
          "currency": "INR"
         },
-        "count": 12,
+        "count": 1,
         "tender": "cash"
        }
       ],
       "total": {
-       "amount_paise": 529200,
+       "amount_paise": 50400,
        "currency": "INR"
       }
      },
-     "business_day_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7031",
+     "business_day_id": "781c2cf3-5c86-5dca-8c74-ef356237bbac",
      "cause": "late_device",
      "created_at": "2026-11-24T13:09:40.000Z",
      "display_number": "Z/2026-11-24/P1/R1",
      "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7071",
      "op_from_seq": 813,
      "op_to_seq": 830,
-     "origin_device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5f",
+     "origin_device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
      "revision": 1
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listBusinessDays": {
@@ -997,21 +987,21 @@
      "close": {
       "closed_at": "2026-11-24T13:05:11.120Z",
       "closing_device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
-      "closing_member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+      "closing_member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
       "cutoff": "{\"0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e\":812}",
       "series_ranges": [
        {
-        "count": 12,
+        "count": 1,
         "doc_type": "tax_invoice",
-        "first_number": "AAA/2627/000112",
-        "last_number": "AAA/2627/000123",
-        "series_code": "AAA"
+        "first_number": "A7K/2627/000001",
+        "last_number": "A7K/2627/000001",
+        "series_code": "A7K"
        }
       ],
       "totals": {
-       "bill_count": 12,
+       "bill_count": 1,
        "cgst": {
-        "amount_paise": 12600,
+        "amount_paise": 1200,
         "currency": "INR"
        },
        "credit_note_count": 0,
@@ -1024,7 +1014,7 @@
         "currency": "INR"
        },
        "gross": {
-        "amount_paise": 504000,
+        "amount_paise": 48000,
         "currency": "INR"
        },
        "internal_consumption": {
@@ -1032,7 +1022,7 @@
         "currency": "INR"
        },
        "net": {
-        "amount_paise": 504000,
+        "amount_paise": 48000,
         "currency": "INR"
        },
        "non_gst": {
@@ -1052,35 +1042,34 @@
         "currency": "INR"
        },
        "sgst": {
-        "amount_paise": 12600,
+        "amount_paise": 1200,
         "currency": "INR"
        },
        "tenders": [
         {
          "amount": {
-          "amount_paise": 504000,
+          "amount_paise": 48000,
           "currency": "INR"
          },
-         "count": 12,
+         "count": 1,
          "tender": "cash"
         }
        ],
        "total": {
-        "amount_paise": 529200,
+        "amount_paise": 50400,
         "currency": "INR"
        }
       },
       "z_number": "Z/2026-11-24/P1"
      },
-     "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7031",
+     "id": "781c2cf3-5c86-5dca-8c74-ef356237bbac",
      "late_document_count": 0,
      "opened_at": "2026-11-24T13:05:11.120Z",
      "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
      "revision_count": 0,
      "status": "closed"
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listCreditNotes": {
@@ -1090,7 +1079,7 @@
     {
      "bill_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001",
      "bill_invoice_date": "2026-11-24",
-     "bill_number": "AAA/2627/000123",
+     "bill_number": "A7K/2627/000001",
      "business_date": "2026-11-24",
      "calc_v": 1,
      "created_at": "2026-11-24T13:05:11.120Z",
@@ -1131,8 +1120,8 @@
        "variant_name": "Full"
       }
      ],
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
-     "number": "AAB/2627/000004",
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
+     "number": "A7M/2627/000001",
      "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
      "refund_tender": "cash",
      "round_off": {
@@ -1177,16 +1166,15 @@
        "amount_paise": 0,
        "currency": "INR"
       },
-      "ruleset_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+      "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
       "status": "verified"
      }
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listDocumentGaps": {
-  "world": "base",
+  "world": "gap-open",
   "response": {
    "items": [
     {
@@ -1195,12 +1183,11 @@
      "kind": "device",
      "missing_from": 57,
      "missing_to": 57,
-     "series_code": "AAA",
+     "series_code": "A7K",
      "status": "open",
      "tax_registration_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6b"
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listDocumentRegister": {
@@ -1208,21 +1195,20 @@
   "response": {
    "items": [
     {
-     "count": 123,
+     "count": 1,
      "device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
      "doc_type": "tax_invoice",
      "financial_year": "2627",
-     "first_number": "AAA/2627/000001",
+     "first_number": "A7K/2627/000001",
      "gap_count": 0,
      "kind": "device",
-     "last_number": "AAA/2627/000123",
+     "last_number": "A7K/2627/000001",
      "last_seen_at": "2026-11-24T13:05:11.120Z",
-     "series_code": "AAA",
+     "series_code": "A7K",
      "state": "active",
      "tax_registration_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6b"
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listInternalConsumptions": {
@@ -1240,13 +1226,12 @@
       "amount_paise": 36000,
       "currency": "INR"
      },
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
      "reason_code_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f5163",
      "ref": "IC/P1/0004"
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listPayments": {
@@ -1266,7 +1251,7 @@
      },
      "device_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5e",
      "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7021",
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "paid_at": "2026-11-24T13:05:11.120Z",
      "shift_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7051",
      "target_kind": "bill",
@@ -1276,8 +1261,7 @@
       "currency": "INR"
      }
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listRefunds": {
@@ -1292,14 +1276,13 @@
      "bill_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001",
      "business_date": "2026-11-24",
      "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7061",
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "payment_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7021",
      "reason_code_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f5162",
      "refunded_at": "2026-11-24T13:05:11.120Z",
      "tender": "cash"
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listShifts": {
@@ -1321,7 +1304,7 @@
      "force_closed": false,
      "handover_counted": true,
      "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7051",
-     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66",
+     "member_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a64",
      "opened_at": "2026-11-24T13:05:11.120Z",
      "opening_float": {
       "amount_paise": 200000,
@@ -1334,8 +1317,7 @@
       "currency": "INR"
      }
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listTaxRuleSetMasters": {
@@ -1346,7 +1328,7 @@
      "calc_v": 1,
      "created_at": "2026-11-24T13:05:11.120Z",
      "effective_date": "2026-12-15",
-     "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7042",
+     "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",
      "name": "GST restaurant services 2026 B",
      "review_status": "unreviewed",
      "revision": 1,
@@ -1366,8 +1348,7 @@
      "state": "draft",
      "version": 2
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "listTaxRuleSets": {
@@ -1378,7 +1359,7 @@
      "calc_v": 1,
      "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
      "effective_date": "2026-04-01",
-     "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7041",
+     "id": "9107573a-9de6-569a-a692-fb53d5d4c799",
      "name": "GST restaurant services 2026",
      "published_at": "2026-11-24T13:05:11.120Z",
      "review_status": "unreviewed",
@@ -1397,8 +1378,7 @@
      ],
      "version": 1
     }
-   ],
-   "next_cursor": "eyJhZnRlciI6IjAxOTBhMWIyIn0"
+   ]
   }
  },
  "publishTaxRuleSet": {
@@ -1406,12 +1386,13 @@
   "request": {},
   "response": {
    "calc_v": 1,
+   "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
    "created_at": "2026-11-24T13:05:11.120Z",
    "effective_date": "2026-12-15",
-   "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7042",
+   "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",
    "name": "GST restaurant services 2026 B",
    "organisations_total": 3,
-   "published_at": "2026-11-24T13:09:40.000Z",
+   "published_at": "2026-11-24T13:09:11.120Z",
    "review_status": "reviewed",
    "revision": 1,
    "rules": [
@@ -1483,9 +1464,10 @@
   },
   "response": {
    "calc_v": 1,
+   "content_hash": "a3f5c0de9d1b7e44c2f9a8b6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6",
    "created_at": "2026-11-24T13:05:11.120Z",
    "effective_date": "2026-12-15",
-   "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7042",
+   "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",
    "name": "GST restaurant services 2026 B",
    "review_status": "reviewed",
    "revision": 1,
@@ -1535,7 +1517,7 @@
    "calc_v": 1,
    "created_at": "2026-11-24T13:05:11.120Z",
    "effective_date": "2026-12-15",
-   "id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7042",
+   "id": "72bdd3f5-68b5-59b0-8e62-2075a1f43c47",
    "name": "GST restaurant services 2026 B",
    "review_status": "unreviewed",
    "revision": 2,
@@ -1561,8 +1543,8 @@
   "response": {
    "errors": [],
    "valid": true,
-   "vectors_passed": 48,
-   "vectors_total": 48
+   "vectors_passed": 65,
+   "vectors_total": 65
   }
  }
 }

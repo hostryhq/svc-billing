@@ -33,8 +33,8 @@ func TestConformanceVectors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res) != 64 {
-		t.Fatalf("%d vectors embedded, the shared file has 64", len(res))
+	if len(res) != 65 {
+		t.Fatalf("%d vectors embedded, the shared file has 65", len(res))
 	}
 	for _, r := range res {
 		t.Run(r.ID, func(t *testing.T) {

@@ -1307,12 +1307,12 @@ type Bill struct {
 	// Example: 1
 	CalcV int `json:"calc_v"`
 
-	// CashierId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// CashierId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	CashierId *Id `json:"cashier_id,omitempty"`
 
-	// CheckId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// CheckId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	CheckId *Id `json:"check_id,omitempty"`
@@ -1320,7 +1320,7 @@ type Bill struct {
 	// Credited Amount in integer paise. Never a float.
 	Credited Money `json:"credited"`
 
-	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	DeviceId Id `json:"device_id"`
@@ -1338,7 +1338,7 @@ type Bill struct {
 	// Example: 2026-11-24T13:05:11.120Z
 	FinalizedAt Timestamp `json:"finalized_at"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -1353,7 +1353,7 @@ type Bill struct {
 
 	// Number <code>/<FY>/<running>, at most 16 characters; for a manual_book bill the book's own number.
 	//
-	// Example: AAA/2627/000123
+	// Example: A7K/2627/000001
 	Number string `json:"number"`
 
 	// OrderType dine_in, takeaway or counter.
@@ -1361,7 +1361,7 @@ type Bill struct {
 	// Example: dine_in
 	OrderType BillOrderType `json:"order_type"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -1382,7 +1382,7 @@ type Bill struct {
 	// RoundOff Amount in integer paise. Never a float.
 	RoundOff Money `json:"round_off"`
 
-	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	RulesetId *Id `json:"ruleset_id,omitempty"`
@@ -1398,7 +1398,7 @@ type Bill struct {
 	// Verification Result of recomputing a document with its own calc_v and ruleset_v (R6.6). Never changes the document.
 	Verification Verification `json:"verification"`
 
-	// WaiterId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// WaiterId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	WaiterId *Id `json:"waiter_id,omitempty"`
@@ -1426,12 +1426,12 @@ type BillDetail struct {
 	// Example: 1
 	CalcV int `json:"calc_v"`
 
-	// CashierId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// CashierId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	CashierId *Id `json:"cashier_id,omitempty"`
 
-	// CheckId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// CheckId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	CheckId *Id `json:"check_id,omitempty"`
@@ -1449,7 +1449,7 @@ type BillDetail struct {
 	// Example: A. Kumar
 	CustomerName *string `json:"customer_name,omitempty"`
 
-	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	DeviceId Id `json:"device_id"`
@@ -1470,7 +1470,7 @@ type BillDetail struct {
 	// Example: 2026-11-24T13:05:11.120Z
 	FinalizedAt Timestamp `json:"finalized_at"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -1491,7 +1491,7 @@ type BillDetail struct {
 
 	// Number <code>/<FY>/<running>, at most 16 characters; for a manual_book bill the book's own number.
 	//
-	// Example: AAA/2627/000123
+	// Example: A7K/2627/000001
 	Number string `json:"number"`
 
 	// OrderType dine_in, takeaway or counter.
@@ -1499,7 +1499,7 @@ type BillDetail struct {
 	// Example: dine_in
 	OrderType BillDetailOrderType `json:"order_type"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -1526,7 +1526,7 @@ type BillDetail struct {
 	// RoundOff Amount in integer paise. Never a float.
 	RoundOff Money `json:"round_off"`
 
-	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	RulesetId *Id `json:"ruleset_id,omitempty"`
@@ -1548,7 +1548,7 @@ type BillDetail struct {
 	// Verification Result of recomputing a document with its own calc_v and ruleset_v (R6.6). Never changes the document.
 	Verification Verification `json:"verification"`
 
-	// WaiterId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// WaiterId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	WaiterId *Id `json:"waiter_id,omitempty"`
@@ -1574,7 +1574,7 @@ type BillLine struct {
 	// BillDiscountAlloc Amount in integer paise. Never a float.
 	BillDiscountAlloc Money `json:"bill_discount_alloc"`
 
-	// CategoryId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// CategoryId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	CategoryId *Id `json:"category_id,omitempty"`
@@ -1592,7 +1592,7 @@ type BillLine struct {
 	// Example: 996331
 	HsnSac *string `json:"hsn_sac,omitempty"`
 
-	// ItemId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ItemId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ItemId Id `json:"item_id"`
@@ -1616,7 +1616,7 @@ type BillLine struct {
 	// Net Amount in integer paise. Never a float.
 	Net Money `json:"net"`
 
-	// OrderLineId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OrderLineId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OrderLineId *Id `json:"order_line_id,omitempty"`
@@ -1677,7 +1677,7 @@ type BillingSettings struct {
 	// OpenItemLimit Amount in integer paise. Never a float.
 	OpenItemLimit Money `json:"open_item_limit"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -1729,7 +1729,7 @@ type BusinessDay struct {
 	// Close The canonical day_close fact: the cutoff, totals and ranges the device printed (A1.1 item 4).
 	Close *DayClose `json:"close,omitempty"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -1744,7 +1744,7 @@ type BusinessDay struct {
 	// Example: 2026-11-24T13:05:11.120Z
 	OpenedAt *Timestamp `json:"opened_at,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -1784,7 +1784,7 @@ type BusinessDayRevision struct {
 	// AddedTotals Money totals of a business day or of a Z revision's added documents. Cash and UPI are never combined (RM-R1 report 1).
 	AddedTotals DayTotals `json:"added_totals"`
 
-	// BusinessDayId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// BusinessDayId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	BusinessDayId Id `json:"business_day_id"`
@@ -1804,7 +1804,7 @@ type BusinessDayRevision struct {
 	// Example: Z/2026-11-24/P1/R1
 	DisplayNumber string `json:"display_number"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -1819,7 +1819,7 @@ type BusinessDayRevision struct {
 	// Example: 830
 	OpToSeq int64 `json:"op_to_seq"`
 
-	// OriginDeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OriginDeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OriginDeviceId Id `json:"origin_device_id"`
@@ -1866,7 +1866,7 @@ type CategorySalesReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -1884,7 +1884,7 @@ type CategorySalesReportBasis string
 
 // CategorySalesRow Category-wise sales (report 6).
 type CategorySalesRow struct {
-	// CategoryId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// CategoryId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	CategoryId Id `json:"category_id"`
@@ -1913,7 +1913,7 @@ type ConfigChange struct {
 	// Example: cloud-1/outlet:0190a1b2/731
 	OpId string `json:"op_id"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -1926,7 +1926,7 @@ type ConfigChange struct {
 
 // CreditNote A credit note: the only correction of a numbered bill; cites the original number and date (RM-P8). Computed by the same rules on the credited quantities (RM-B10).
 type CreditNote struct {
-	// BillId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// BillId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	BillId Id `json:"bill_id"`
@@ -1938,7 +1938,7 @@ type CreditNote struct {
 
 	// BillNumber Number of the original bill.
 	//
-	// Example: AAA/2627/000123
+	// Example: A7K/2627/000001
 	BillNumber string `json:"bill_number"`
 
 	// BusinessDate Business date the credit note was made on.
@@ -1956,12 +1956,12 @@ type CreditNote struct {
 	// Example: 2026-11-24T13:05:11.120Z
 	CreatedAt Timestamp `json:"created_at"`
 
-	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	DeviceId Id `json:"device_id"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -1974,27 +1974,27 @@ type CreditNote struct {
 	// Lines Credited lines (qty_milli is the credited quantity).
 	Lines []BillLine `json:"lines"`
 
-	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	MemberId Id `json:"member_id"`
 
 	// Number Number from the issuing device's credit-note series.
 	//
-	// Example: AAB/2627/000004
+	// Example: A7M/2627/000001
 	Number string `json:"number"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
 
-	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ReasonCodeId *Id `json:"reason_code_id,omitempty"`
 
-	// RebillGroupId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// RebillGroupId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	RebillGroupId *Id `json:"rebill_group_id,omitempty"`
@@ -2005,7 +2005,7 @@ type CreditNote struct {
 	// RoundOff Amount in integer paise. Never a float.
 	RoundOff Money `json:"round_off"`
 
-	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	RulesetId *Id `json:"ruleset_id,omitempty"`
@@ -2041,12 +2041,12 @@ type DayClose struct {
 	// Example: 2026-11-24T13:05:11.120Z
 	ClosedAt Timestamp `json:"closed_at"`
 
-	// ClosingDeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ClosingDeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ClosingDeviceId Id `json:"closing_device_id"`
 
-	// ClosingMemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ClosingMemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ClosingMemberId Id `json:"closing_member_id"`
@@ -2088,7 +2088,7 @@ type DaySummaryReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2202,7 +2202,7 @@ type DiscountReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2231,7 +2231,7 @@ type DiscountReportBasis string
 
 // DiscountRow A discount, comp, refund, credit note, re-bill, internal closure or open item: who, when, reason, approver, value (report 7, billing part, with the allowance rows).
 type DiscountRow struct {
-	// ApproverId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ApproverId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ApproverId *Id `json:"approver_id,omitempty"`
@@ -2243,7 +2243,7 @@ type DiscountRow struct {
 
 	// BillNumber Number of the bill concerned, when it has one.
 	//
-	// Example: AAA/2627/000123
+	// Example: A7K/2627/000001
 	BillNumber *string `json:"bill_number,omitempty"`
 
 	// BusinessDate Business date.
@@ -2256,17 +2256,17 @@ type DiscountRow struct {
 	// Example: discount
 	Kind DiscountRowKind `json:"kind"`
 
-	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	MemberId Id `json:"member_id"`
 
-	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ReasonCodeId Id `json:"reason_code_id"`
 
-	// SubjectId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// SubjectId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	SubjectId Id `json:"subject_id"`
@@ -2318,7 +2318,7 @@ type Exception struct {
 	// Example: 2026-11-24T13:05:11.120Z
 	DetectedAt Timestamp `json:"detected_at"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -2328,7 +2328,7 @@ type Exception struct {
 	// Example: payments_exceed_total
 	Kind string `json:"kind"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2415,7 +2415,7 @@ type HourlySalesReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2462,7 +2462,7 @@ type HourlySalesRow struct {
 // Example: dine_in
 type HourlySalesRowOrderType string
 
-// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 //
 // Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 type Id = string
@@ -2474,7 +2474,7 @@ type InternalConsumption struct {
 	// Example: 2026-11-24
 	BusinessDate openapi_types.Date `json:"business_date"`
 
-	// CheckId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// CheckId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	CheckId Id `json:"check_id"`
@@ -2484,12 +2484,12 @@ type InternalConsumption struct {
 	// Example: 2026-11-24T13:05:11.120Z
 	ClosedAt Timestamp `json:"closed_at"`
 
-	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	DeviceId Id `json:"device_id"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -2502,17 +2502,17 @@ type InternalConsumption struct {
 	// ListValue Amount in integer paise. Never a float.
 	ListValue Money `json:"list_value"`
 
-	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	MemberId Id `json:"member_id"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
 
-	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ReasonCodeId Id `json:"reason_code_id"`
@@ -2559,7 +2559,7 @@ type ItemSalesReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2580,7 +2580,7 @@ type ItemSalesRow struct {
 	// Gross Amount in integer paise. Never a float.
 	Gross Money `json:"gross"`
 
-	// ItemId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ItemId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ItemId Id `json:"item_id"`
@@ -2624,7 +2624,7 @@ type MoneyCurrency string
 
 // OutletBillingConfig Everything billing holds about how an outlet bills.
 type OutletBillingConfig struct {
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2651,7 +2651,7 @@ type OutletTaxProfile struct {
 	// Example: 12345678901234
 	FssaiNumber *string `json:"fssai_number,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2678,7 +2678,7 @@ type Payment struct {
 	// Amount Amount in integer paise. Never a float.
 	Amount Money `json:"amount"`
 
-	// BillId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// BillId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	BillId Id `json:"bill_id"`
@@ -2691,17 +2691,17 @@ type Payment struct {
 	// Change Amount in integer paise. Never a float.
 	Change *Money `json:"change,omitempty"`
 
-	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	DeviceId Id `json:"device_id"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
 
-	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	MemberId Id `json:"member_id"`
@@ -2716,7 +2716,7 @@ type Payment struct {
 	// Example: 4821
 	Reference *string `json:"reference,omitempty"`
 
-	// ShiftId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ShiftId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ShiftId *Id `json:"shift_id,omitempty"`
@@ -2801,6 +2801,11 @@ type Problem struct {
 	// Example: /v1/resources/0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Instance *string `json:"instance,omitempty"`
 
+	// Reason Optional sub-code that refines `code`, for example approval_not_executable carries not_approved, lapsed, executed, not_approver or subject_changed.
+	//
+	// Example: not_approved
+	Reason *string `json:"reason,omitempty"`
+
 	// RequestId Request ID for log correlation.
 	//
 	// Example: req_0190a1b2c3d4
@@ -2842,7 +2847,7 @@ type ProjectionDigest struct {
 	// Entities Per-entity digests, entity name ascending.
 	Entities []EntityDigest `json:"entities"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -2871,7 +2876,7 @@ type Refund struct {
 	// Amount Amount in integer paise. Never a float.
 	Amount Money `json:"amount"`
 
-	// BillId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// BillId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	BillId Id `json:"bill_id"`
@@ -2881,22 +2886,22 @@ type Refund struct {
 	// Example: 2026-11-24
 	BusinessDate openapi_types.Date `json:"business_date"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
 
-	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	MemberId Id `json:"member_id"`
 
-	// PaymentId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// PaymentId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	PaymentId *Id `json:"payment_id,omitempty"`
 
-	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// ReasonCodeId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	ReasonCodeId Id `json:"reason_code_id"`
@@ -2957,7 +2962,7 @@ type RegisterGap struct {
 
 	// SeriesCode Series code.
 	//
-	// Example: AAA
+	// Example: A7K
 	SeriesCode string `json:"series_code"`
 
 	// Status open until the numbers arrive or a manager explains them.
@@ -2965,7 +2970,7 @@ type RegisterGap struct {
 	// Example: open
 	Status RegisterGapStatus `json:"status"`
 
-	// TaxRegistrationId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// TaxRegistrationId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	TaxRegistrationId Id `json:"tax_registration_id"`
@@ -2999,7 +3004,7 @@ type RegisterSeries struct {
 	// Example: 123
 	Count int `json:"count"`
 
-	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	DeviceId *Id `json:"device_id,omitempty"`
@@ -3016,7 +3021,7 @@ type RegisterSeries struct {
 
 	// FirstNumber First number seen.
 	//
-	// Example: AAA/2627/000001
+	// Example: A7K/2627/000001
 	FirstNumber *string `json:"first_number,omitempty"`
 
 	// GapCount Open gaps.
@@ -3031,7 +3036,7 @@ type RegisterSeries struct {
 
 	// LastNumber Highest number seen.
 	//
-	// Example: AAA/2627/000123
+	// Example: A7K/2627/000001
 	LastNumber *string `json:"last_number,omitempty"`
 
 	// LastSeenAt RFC 3339 instant in UTC.
@@ -3041,7 +3046,7 @@ type RegisterSeries struct {
 
 	// SeriesCode Series code.
 	//
-	// Example: AAA
+	// Example: A7K
 	SeriesCode string `json:"series_code"`
 
 	// State active; closed; open_tail when the device was revoked and has not uploaded; closed_unreconciled.
@@ -3049,7 +3054,7 @@ type RegisterSeries struct {
 	// Example: active
 	State RegisterSeriesState `json:"state"`
 
-	// TaxRegistrationId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// TaxRegistrationId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	TaxRegistrationId Id `json:"tax_registration_id"`
@@ -3095,10 +3100,10 @@ type SeriesLastSeen struct {
 
 	// LastNumber Highest number seen; absent when none.
 	//
-	// Example: AAA/2627/000123
+	// Example: A7K/2627/000001
 	LastNumber *string `json:"last_number,omitempty"`
 
-	// SeriesId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// SeriesId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	SeriesId Id `json:"series_id"`
@@ -3118,17 +3123,17 @@ type SeriesRange struct {
 
 	// FirstNumber First number seen.
 	//
-	// Example: AAA/2627/000112
+	// Example: A7K/2627/000001
 	FirstNumber string `json:"first_number"`
 
 	// LastNumber Last number seen.
 	//
-	// Example: AAA/2627/000123
+	// Example: A7K/2627/000001
 	LastNumber string `json:"last_number"`
 
 	// SeriesCode Three-character series code.
 	//
-	// Example: AAA
+	// Example: A7K
 	SeriesCode string `json:"series_code"`
 }
 
@@ -3199,7 +3204,7 @@ type Shift struct {
 	// Counted Amount in integer paise. Never a float.
 	Counted *Money `json:"counted,omitempty"`
 
-	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// DeviceId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	DeviceId Id `json:"device_id"`
@@ -3213,12 +3218,12 @@ type Shift struct {
 	// HandoverCounted False when a handover was skipped (listed as an exception).
 	HandoverCounted *bool `json:"handover_counted,omitempty"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
 
-	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	MemberId Id `json:"member_id"`
@@ -3231,7 +3236,7 @@ type Shift struct {
 	// OpeningFloat Amount in integer paise. Never a float.
 	OpeningFloat Money `json:"opening_float"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -3310,7 +3315,7 @@ type StaffSalesReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -3333,7 +3338,7 @@ type StaffSalesRow struct {
 	// Example: 12
 	BillCount int `json:"bill_count"`
 
-	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// MemberId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	MemberId Id `json:"member_id"`
@@ -3457,7 +3462,7 @@ type TaxRuleSet struct {
 	// Example: 2026-11-24
 	EffectiveDate openapi_types.Date `json:"effective_date"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -3534,7 +3539,7 @@ type TaxRuleSetMaster struct {
 	// Example: 2026-11-24
 	EffectiveDate openapi_types.Date `json:"effective_date"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -3667,7 +3672,7 @@ type TaxSummaryReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -3737,7 +3742,7 @@ type TenderKind struct {
 	// Enabled Whether it is offered.
 	Enabled bool `json:"enabled"`
 
-	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// Id Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	Id Id `json:"id"`
@@ -3752,7 +3757,7 @@ type TenderKind struct {
 	// Example: Coupon
 	Name string `json:"name"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -3783,7 +3788,7 @@ type TenderSummaryReport struct {
 	// Example: eyJhZnRlciI6IjAxOTBhMWIyLWMzZDQtN2U1Zi04YTliLTBjMWQyZTNmNGE1YiJ9
 	NextCursor *string `json:"next_cursor,omitempty"`
 
-	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// OutletId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
@@ -3877,7 +3882,7 @@ type Verification struct {
 	// Difference Amount in integer paise. Never a float.
 	Difference *Money `json:"difference,omitempty"`
 
-	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+	// RulesetId Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 	//
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	RulesetId *Id `json:"ruleset_id,omitempty"`
@@ -3905,7 +3910,7 @@ type IfMatch = string
 // Limit defines model for Limit.
 type Limit = int
 
-// OutletScope Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted).
+// OutletScope Client-generated, time-sortable UUIDv7 in lower-case canonical form (ADR-0003 policy; ULID is not accepted). The row id of an entity whose entity file declares a deterministic id (id.rule uuidv5, ADR-0014) is a UUIDv5 in the same form, so two devices that write the same natural key converge on one row.
 //
 // Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 type OutletScope = Id
@@ -3921,6 +3926,9 @@ type VendorLimit = int
 
 // Conflict RFC 9457 problem details. `type` is a stable URI per error kind.
 type Conflict = Problem
+
+// EmitUnavailable RFC 9457 problem details. `type` is a stable URI per error kind.
+type EmitUnavailable = Problem
 
 // Forbidden RFC 9457 problem details. `type` is a stable URI per error kind.
 type Forbidden = Problem
@@ -4008,7 +4016,7 @@ type UpdateTaxRuleSetDraftParams struct {
 
 // PublishTaxRuleSetParams defines parameters for PublishTaxRuleSet.
 type PublishTaxRuleSetParams struct {
-	// HostryVendorApproval Signed, single-use vendor approval grant from identity (ADR-0014 A1.3): vendor realm, type vendor_approval, 5 minutes; claims are the approval id, kind, organisation or none, requester, approver and a subject hash over the fields named per kind. The executing service verifies the signature and the approver's permission (the bearer token is the approver's), recomputes the subject hash from the request, records the grant id as used in the action's own transaction and applies its own guard. A used, expired or foreign-subject grant is refused 403 with code grant.used, grant.expired or grant.subject_mismatch; a missing one is 403 grant.required.
+	// HostryVendorApproval Signed, single-use vendor approval grant from identity (ADR-0014 A1.3, A2.6): a compact JWS, ES256, signed with identity's vendor-realm key (`kid` in the header), 5 minutes. Claims are in the schema VendorApprovalGrantClaims; the subject hash is defined there and checked by the shared vectors in common/vendor-grant.vectors.v1.json. The executing service verifies in this order: signature and kid; typ, realm and aud (the service itself); exp; kind (the one this operation executes); org (equals the path organisation, or absent); approver (equals the subject of the bearer vendor token, which holds the kind's approve permission); the subject hash, recomputed from the path and the service's own stored state, never from a value the caller sends; then jti is inserted into approval_grant_used in the action's own transaction. Refusals are 403 with code grant.required (no header), grant.invalid (signature, kid, typ, realm, aud, kind, org or approver), grant.expired (exp), grant.subject_mismatch or grant.used. The grant never reaches a browser. approval_id is a parameter of the admin facade only; an executing service takes it from the grant.
 	HostryVendorApproval VendorApprovalGrant `json:"Hostry-Vendor-Approval"`
 
 	// XVendorClientAddress Network address of the staff member's browser, passed down by the admin service. Trusted only together with the admin service token; used for the audit record alone.
@@ -4590,7 +4598,7 @@ type ClientInterface interface {
 
 	// PublishTaxRuleSetWithBody Publish a signed rule set
 	//
-	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -4599,7 +4607,7 @@ type ClientInterface interface {
 
 	// PublishTaxRuleSet Publish a signed rule set
 	//
-	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -4995,7 +5003,7 @@ func (c *Client) UpdateTaxRuleSetDraft(ctx context.Context, ruleSetId Id, params
 
 // PublishTaxRuleSetWithBody Publish a signed rule set
 //
-// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 //
 // Takes any type of body and a specified content type.
 //
@@ -5014,7 +5022,7 @@ func (c *Client) PublishTaxRuleSetWithBody(ctx context.Context, ruleSetId Id, pa
 
 // PublishTaxRuleSet Publish a signed rule set
 //
-// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -8826,7 +8834,7 @@ type ClientWithResponsesInterface interface {
 
 	// PublishTaxRuleSetWithBodyWithResponse Publish a signed rule set
 	//
-	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -8835,7 +8843,7 @@ type ClientWithResponsesInterface interface {
 
 	// PublishTaxRuleSetWithResponse Publish a signed rule set
 	//
-	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+	// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -10574,6 +10582,11 @@ func (r GetOutletBillingConfigResponse) ContentType() string {
 	return ""
 }
 
+// SetDiscountLimitResponse503Headers the declared response headers of an HTTP 503 response for SetDiscountLimit
+type SetDiscountLimitResponse503Headers struct {
+	RetryAfter *int
+}
+
 type SetDiscountLimitResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10589,6 +10602,10 @@ type SetDiscountLimitResponse struct {
 	ApplicationproblemJSON409 *Conflict
 	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
 	ApplicationproblemJSON422 *ValidationFailed
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *EmitUnavailable
+	// Headers503 the parsed response headers for an HTTP 503 response
+	Headers503 *SetDiscountLimitResponse503Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -10621,6 +10638,11 @@ func (r SetDiscountLimitResponse) GetApplicationproblemJSON422() *ValidationFail
 	return r.ApplicationproblemJSON422
 }
 
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r SetDiscountLimitResponse) GetApplicationproblemJSON503() *EmitUnavailable {
+	return r.ApplicationproblemJSON503
+}
+
 // GetBody returns the raw response body bytes
 func (r SetDiscountLimitResponse) GetBody() []byte {
 	return r.Body
@@ -10650,6 +10672,11 @@ func (r SetDiscountLimitResponse) ContentType() string {
 	return ""
 }
 
+// SetNumberingModeResponse503Headers the declared response headers of an HTTP 503 response for SetNumberingMode
+type SetNumberingModeResponse503Headers struct {
+	RetryAfter *int
+}
+
 type SetNumberingModeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10665,6 +10692,10 @@ type SetNumberingModeResponse struct {
 	ApplicationproblemJSON409 *OpenChecks
 	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
 	ApplicationproblemJSON422 *ValidationFailed
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *EmitUnavailable
+	// Headers503 the parsed response headers for an HTTP 503 response
+	Headers503 *SetNumberingModeResponse503Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -10697,6 +10728,11 @@ func (r SetNumberingModeResponse) GetApplicationproblemJSON422() *ValidationFail
 	return r.ApplicationproblemJSON422
 }
 
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r SetNumberingModeResponse) GetApplicationproblemJSON503() *EmitUnavailable {
+	return r.ApplicationproblemJSON503
+}
+
 // GetBody returns the raw response body bytes
 func (r SetNumberingModeResponse) GetBody() []byte {
 	return r.Body
@@ -10726,6 +10762,11 @@ func (r SetNumberingModeResponse) ContentType() string {
 	return ""
 }
 
+// SetOutletTaxProfileResponse503Headers the declared response headers of an HTTP 503 response for SetOutletTaxProfile
+type SetOutletTaxProfileResponse503Headers struct {
+	RetryAfter *int
+}
+
 type SetOutletTaxProfileResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10741,6 +10782,10 @@ type SetOutletTaxProfileResponse struct {
 	ApplicationproblemJSON409 *Conflict
 	// ApplicationproblemJSON422 the response for an HTTP 422 `application/problem+json` response
 	ApplicationproblemJSON422 *ValidationFailed
+	// ApplicationproblemJSON503 the response for an HTTP 503 `application/problem+json` response
+	ApplicationproblemJSON503 *EmitUnavailable
+	// Headers503 the parsed response headers for an HTTP 503 response
+	Headers503 *SetOutletTaxProfileResponse503Headers
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -10771,6 +10816,11 @@ func (r SetOutletTaxProfileResponse) GetApplicationproblemJSON409() *Conflict {
 // GetApplicationproblemJSON422 returns the response for an HTTP 422 `application/problem+json` response
 func (r SetOutletTaxProfileResponse) GetApplicationproblemJSON422() *ValidationFailed {
 	return r.ApplicationproblemJSON422
+}
+
+// GetApplicationproblemJSON503 returns the response for an HTTP 503 `application/problem+json` response
+func (r SetOutletTaxProfileResponse) GetApplicationproblemJSON503() *EmitUnavailable {
+	return r.ApplicationproblemJSON503
 }
 
 // GetBody returns the raw response body bytes
@@ -11786,7 +11836,7 @@ func (c *ClientWithResponses) UpdateTaxRuleSetDraftWithResponse(ctx context.Cont
 
 // PublishTaxRuleSetWithBodyWithResponse Publish a signed rule set
 //
-// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -11801,7 +11851,7 @@ func (c *ClientWithResponses) PublishTaxRuleSetWithBodyWithResponse(ctx context.
 
 // PublishTaxRuleSetWithResponse Publish a signed rule set
 //
-// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant).
+// Needs a tax_rule_set_publish grant (parameter) whose subject hash (rule-set id, content hash, effective date) matches; the lead time (deployment configuration, at least 24 hours) is checked here on billing's clock: 422 effective_date_too_soon. Marks published and queues one emit per organisation (op id UUIDv5(tenant, version)) in one transaction; also emitted to every organisation created later (BR-A1-120). Publishes billing.tax_rule_set.published and billing.vendor_access.recorded (vendor log only, no tenant). approval_id is a parameter of the admin facade only: this route takes the approval from the grant (Hostry-Vendor-Approval, common/vendor.yaml) and never answers approval_not_executable; its refusals are grant.required, grant.invalid, grant.expired, grant.subject_mismatch and grant.used.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -13490,6 +13540,26 @@ func ParseSetDiscountLimitResponse(rsp *http.Response) (*SetDiscountLimitRespons
 		}
 		response.ApplicationproblemJSON422 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest EmitUnavailable
+		if err := runtime.JSONUnmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 503:
+		var headers SetDiscountLimitResponse503Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers503 = &headers
 	}
 
 	return response, nil
@@ -13551,6 +13621,26 @@ func ParseSetNumberingModeResponse(rsp *http.Response) (*SetNumberingModeRespons
 		}
 		response.ApplicationproblemJSON422 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest EmitUnavailable
+		if err := runtime.JSONUnmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 503:
+		var headers SetNumberingModeResponse503Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers503 = &headers
 	}
 
 	return response, nil
@@ -13612,6 +13702,26 @@ func ParseSetOutletTaxProfileResponse(rsp *http.Response) (*SetOutletTaxProfileR
 		}
 		response.ApplicationproblemJSON422 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
+		var dest EmitUnavailable
+		if err := runtime.JSONUnmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSON503 = &dest
+
+	}
+
+	switch {
+	case rsp.StatusCode == 503:
+		var headers SetOutletTaxProfileResponse503Headers
+		if values := rsp.Header.Values("Retry-After"); len(values) > 0 {
+			var value int
+			if err := runtime.BindStyledParameterWithOptions("simple", "Retry-After", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.RetryAfter = &value
+		}
+		response.Headers503 = &headers
 	}
 
 	return response, nil

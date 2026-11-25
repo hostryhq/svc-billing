@@ -11,6 +11,8 @@ npx --yes "@redocly/cli@${REDOCLY_VERSION}" bundle "$SPECS/openapi/billing/v1/op
 "$OAPI" -config oapi-codegen.yaml .tmp/billing.yaml
 go run ./tools/seedgen -in .tmp/billing.yaml -out internal/seed/examples.json
 cp "$SPECS/tax/conformance/vectors.v1.json" tax/vectors/vectors.v1.json
+cp "$SPECS/common/vendor-grant.vectors.v1.json" internal/seed/vendor-grant.vectors.v1.json
+rm -rf internal/gen/entities && cp -r "$SPECS/entities" internal/gen/entities
 cp "$SPECS/tax/rule-sets/draft-unreviewed.v1.yaml" tax/vectors/draft-unreviewed.v1.yaml
 go run ./tools/gen -spec "$SPECS/openapi/billing/v1/openapi.yaml" -permissions "$SPECS/common/permissions.yaml" -out internal/gen
 {

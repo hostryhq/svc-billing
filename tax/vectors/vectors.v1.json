@@ -5440,6 +5440,45 @@
     "round_off_paise": 0,
     "total_paise": 3499
    }
+  },
+  {
+   "id": "TV-065",
+   "title": "Unknown tax class under the regular regime is an error",
+   "note": "A line whose tax_class is missing from the resolved rules is a defect in the rule set or the item, never silently non-GST (D1). Under composition and unregistered the rules are not consulted, so the same input calculates.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_unlisted"
+     }
+    ]
+   },
+   "expected_error": "unknown_tax_class"
   }
  ]
 }
