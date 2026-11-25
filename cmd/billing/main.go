@@ -24,6 +24,7 @@ import (
 	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/bus"
 	"github.com/hostryhq/go-common/emit"
+	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/inbox"
 	"github.com/hostryhq/go-common/logx"
 	"github.com/hostryhq/go-common/outbox"
@@ -31,7 +32,6 @@ import (
 	"github.com/hostryhq/svc-billing/internal/app"
 	"github.com/hostryhq/svc-billing/internal/config"
 	"github.com/hostryhq/svc-billing/internal/consumer"
-	"github.com/hostryhq/svc-billing/internal/grant"
 	"github.com/hostryhq/svc-billing/internal/ordersclient"
 	"github.com/hostryhq/svc-billing/repository/migrations"
 	"github.com/hostryhq/svc-billing/repository/pg"
@@ -171,13 +171,14 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		if err != nil {
 			return fmt.Errorf("service signing key: %w", err)
 		}
-		// A service token carries no tenant (the tenant is a body field of the emit); tokens are short-lived, minted per call.
-		emitter = &emit.Client{BaseURL: cfg.GatewayURL, Token: func(context.Context) (string, error) { return signer.Sign("sync", "") }}
+		// Emit tokens are short-lived and minted per call for the tenant of the emit: the gateway requires the token's tenant to
+		// equal the request tenant (O2-11).
+		emitter = &emit.Client{BaseURL: cfg.GatewayURL, Token: func(_ context.Context, tenant ids.ID) (string, error) { return signer.Sign("sync", tenant.String()) }}
 	} else {
 		log.Warn("gateway disabled: BILLING_GATEWAY_URL not set; settings routes answer 503 emit.unavailable and emissions stay queued")
 	}
 	a, err := app.Build(app.Options{
-		AppDB: appDB, GlobalDB: globalDB, Log: log, Orders: orders, Emitter: emitter, Grants: &grant.Verifier{Keys: grantKeys}, PublishLead: cfg.PublishLead,
+		AppDB: appDB, GlobalDB: globalDB, Log: log, Orders: orders, Emitter: emitter, Grants: &auth.GrantVerifier{Keys: grantKeys, Issuer: cfg.GrantIssuer, Audience: service.GrantAudience}, PublishLead: cfg.PublishLead,
 		Tenant:   &auth.Verifier{Keys: tenantKeys, Issuer: cfg.TenantIssuer, Audience: cfg.TenantAudience, Realm: auth.RealmTenant},
 		Vendor:   &auth.Verifier{Keys: vendorKeys, Issuer: cfg.VendorIssuer, Audience: cfg.VendorAudience, Realm: auth.RealmVendor},
 		Services: &auth.ServiceVerifier{Registry: auth.NewStaticKeySet(svcDoc), Self: cfg.SelfName},

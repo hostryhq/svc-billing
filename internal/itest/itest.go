@@ -48,8 +48,8 @@ func New(t testing.TB) *Stack {
 	gw := double.NewGateway(clk)
 	gsrv := httptest.NewServer(gw)
 	t.Cleanup(gsrv.Close)
-	em := &emit.Client{BaseURL: gsrv.URL, Token: func(context.Context) (string, error) { return "test-service-token", nil }}
-	g := &double.Grants{}
+	em := &emit.Client{BaseURL: gsrv.URL, Token: func(context.Context, ids.ID) (string, error) { return "test-service-token", nil }}
+	g := double.NewGrants(clk)
 	a, err := app.Build(app.Options{
 		AppDB: db.App, GlobalDB: db.Global,
 		Tenant: tk.TenantIssuer.Verifier(), Vendor: tk.VendorIssuer.Verifier(), Services: tk.Registry.Verifier("billing"),

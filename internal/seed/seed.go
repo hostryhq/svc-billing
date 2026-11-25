@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/tenancy"
 
@@ -22,6 +23,9 @@ import (
 
 //go:embed examples.json
 var examplesJSON []byte
+
+//go:embed billing-digest-day.json
+var digestDayJSON []byte
 
 //go:embed vendor-grant.vectors.v1.json
 var grantVectorsJSON []byte
@@ -95,7 +99,7 @@ func items[T any](ex map[string]example, op string) []T {
 }
 
 // Worlds are the world names of the contract.
-var Worlds = []string{"base", "payments-exceed", "gap-open", "late-revision", "rule-set-draft", "rule-set-signed"}
+var Worlds = []string{"base", "payments-exceed", "gap-open", "late-revision", "rule-set-draft", "rule-set-signed", "digest-day"}
 
 // Apply stores the named world for the example organisation.
 func Apply(ctx context.Context, repo repository.Repository, world string) error {
@@ -152,39 +156,14 @@ func base(ctx context.Context, tx repository.Tx, ex map[string]example, world st
 			return err
 		}
 	}
-	cn := resp[gen.CreditNote](ex, "getCreditNote")
-	if err := put(ctx, tx, repository.Doc{Kind: repository.KindCreditNote, ID: cn.Id, Outlet: Outlet, Date: cn.BusinessDate.String(), Sort: cn.CreatedAt.String(), K1: cn.BillId},
-		service.CreditRec{Note: cn, Calc: service.CreditCalc{SeriesCode: "A7M", FinancialYear: "2627", TotalPaise: cn.Total.AmountPaise}}); err != nil {
+	if world == "digest-day" {
+		// the world holds exactly the rows of examples/digests/billing-digest-day.json: the bill and its cash payment, no other
+		// day-scoped row (no credit note, refund, shift, consumption or business day), and the digest rows of those two
+		if err := digestDay(ctx, tx); err != nil {
+			return err
+		}
+	} else if err := dayRows(ctx, tx, ex, world); err != nil {
 		return err
-	}
-	for _, r := range items[gen.Refund](ex, "listRefunds") {
-		if err := put(ctx, tx, repository.Doc{Kind: repository.KindRefund, ID: r.Id, Outlet: Outlet, Date: r.BusinessDate.String(), Sort: r.RefundedAt.String(), K1: r.BillId}, r); err != nil {
-			return err
-		}
-	}
-	for _, s := range items[gen.Shift](ex, "listShifts") {
-		if err := put(ctx, tx, repository.Doc{Kind: repository.KindShift, ID: s.Id, Outlet: Outlet, Date: s.BusinessDate.String(), Sort: s.OpenedAt.String()}, s); err != nil {
-			return err
-		}
-	}
-	for _, c := range items[gen.InternalConsumption](ex, "listInternalConsumptions") {
-		if err := put(ctx, tx, repository.Doc{Kind: repository.KindInternal, ID: c.Id, Outlet: Outlet, Date: c.BusinessDate.String(), Sort: c.ClosedAt.String()}, c); err != nil {
-			return err
-		}
-	}
-	day := resp[gen.BusinessDay](ex, "getBusinessDay")
-	if world == "late-revision" {
-		day.RevisionCount, day.LateDocumentCount = 1, 1
-	}
-	if err := put(ctx, tx, repository.Doc{Kind: repository.KindBusinessDay, ID: day.Id, Outlet: Outlet, Date: day.BusinessDate.String(), Sort: day.BusinessDate.String(), K1: string(day.Status)}, day); err != nil {
-		return err
-	}
-	if world == "late-revision" {
-		for _, r := range items[gen.BusinessDayRevision](ex, "listBusinessDayRevisions") {
-			if err := put(ctx, tx, repository.Doc{Kind: repository.KindRevision, ID: r.Id, Outlet: Outlet, Date: day.BusinessDate.String(), Sort: fmt.Sprint(1000000 + r.Revision), K1: r.BusinessDayId}, r); err != nil {
-				return err
-			}
-		}
 	}
 	// register and gaps
 	for _, s := range items[gen.RegisterSeries](ex, "listDocumentRegister") {
@@ -232,6 +211,70 @@ func base(ctx context.Context, tx repository.Tx, ex map[string]example, world st
 	if world == "payments-exceed" {
 		for _, e := range items[gen.Exception](ex, "listBillingExceptions") {
 			if err := put(ctx, tx, repository.Doc{Kind: repository.KindException, ID: e.Id, Outlet: Outlet, Date: e.BusinessDate.String(), Sort: e.DetectedAt.String(), K1: e.Kind, K2: string(e.Status)}, e); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// dayRows stores the day-scoped documents of the examples: the credit note, refunds, shifts, internal consumptions and the
+// business day (with its revisions in the late-revision world).
+func dayRows(ctx context.Context, tx repository.Tx, ex map[string]example, world string) error {
+	cn := resp[gen.CreditNote](ex, "getCreditNote")
+	if err := put(ctx, tx, repository.Doc{Kind: repository.KindCreditNote, ID: cn.Id, Outlet: Outlet, Date: cn.BusinessDate.String(), Sort: cn.CreatedAt.String(), K1: cn.BillId},
+		service.CreditRec{Note: cn, Calc: service.CreditCalc{SeriesCode: "A7M", FinancialYear: "2627", TotalPaise: cn.Total.AmountPaise}}); err != nil {
+		return err
+	}
+	for _, r := range items[gen.Refund](ex, "listRefunds") {
+		if err := put(ctx, tx, repository.Doc{Kind: repository.KindRefund, ID: r.Id, Outlet: Outlet, Date: r.BusinessDate.String(), Sort: r.RefundedAt.String(), K1: r.BillId}, r); err != nil {
+			return err
+		}
+	}
+	for _, s := range items[gen.Shift](ex, "listShifts") {
+		if err := put(ctx, tx, repository.Doc{Kind: repository.KindShift, ID: s.Id, Outlet: Outlet, Date: s.BusinessDate.String(), Sort: s.OpenedAt.String()}, s); err != nil {
+			return err
+		}
+	}
+	for _, c := range items[gen.InternalConsumption](ex, "listInternalConsumptions") {
+		if err := put(ctx, tx, repository.Doc{Kind: repository.KindInternal, ID: c.Id, Outlet: Outlet, Date: c.BusinessDate.String(), Sort: c.ClosedAt.String()}, c); err != nil {
+			return err
+		}
+	}
+	day := resp[gen.BusinessDay](ex, "getBusinessDay")
+	if world == "late-revision" {
+		day.RevisionCount, day.LateDocumentCount = 1, 1
+	}
+	if err := put(ctx, tx, repository.Doc{Kind: repository.KindBusinessDay, ID: day.Id, Outlet: Outlet, Date: day.BusinessDate.String(), Sort: day.BusinessDate.String(), K1: string(day.Status)}, day); err != nil {
+		return err
+	}
+	if world == "late-revision" {
+		for _, r := range items[gen.BusinessDayRevision](ex, "listBusinessDayRevisions") {
+			if err := put(ctx, tx, repository.Doc{Kind: repository.KindRevision, ID: r.Id, Outlet: Outlet, Date: day.BusinessDate.String(), Sort: fmt.Sprint(1000000 + r.Revision), K1: r.BusinessDayId}, r); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// digestDay stores the canonical row texts of the digest-day fixture (api-specs examples/digests), the rows the world holds.
+func digestDay(ctx context.Context, tx repository.Tx) error {
+	var fx struct {
+		OutletID string                               `json:"outlet_id"`
+		Date     string                               `json:"business_date"`
+		Rows     map[string]map[string]map[string]any `json:"rows"`
+	}
+	if err := json.Unmarshal(digestDayJSON, &fx); err != nil {
+		return err
+	}
+	for entity, rows := range fx.Rows {
+		for id, fields := range rows {
+			text, err := service.DigestRowText(id, fields, nil)
+			if err != nil {
+				return err
+			}
+			if err := tx.SaveDoc(ctx, service.DigestRowDoc(entity, id, fx.OutletID, fx.Date, "", text)); err != nil {
 				return err
 			}
 		}
@@ -321,14 +364,14 @@ func putMaster(ctx context.Context, tx repository.GlobalTx, m gen.TaxRuleSetMast
 // ExampleApprover is the vendor user who approves in the rule-set-signed world (a second platform admin).
 const ExampleApprover = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a78"
 
-// ExamplePublishGrant is the grant the double accepts for the example rule set of the rule-set-signed world: the
-// claims of the shared vector (api-specs common/vendor-grant.vectors.v1.json) for the publish kind. The signature
-// check is the verifier's (an interface); the service recomputes the subject hash from its own stored state.
-func ExamplePublishGrant() service.Grant {
+// ExamplePublishClaims are the claims of the grant the double accepts for the example rule set of the rule-set-signed world
+// (the ids of the shared vector, api-specs common/vendor-grant.vectors.v1.json, for the publish kind), valid five minutes
+// from now. The signer sets the issuer and signs; billing recomputes the subject hash from its own stored version.
+func ExamplePublishClaims(now time.Time) auth.GrantClaims {
 	m := resp[gen.TaxRuleSetMaster](examples(), "signTaxRuleSet")
-	return service.Grant{ID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4ab2", ApprovalID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6d", Kind: service.GrantKindPublish,
-		Realm: "vendor", Audience: "billing", Type: "vendor_approval", Requester: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66", Approver: ExampleApprover,
-		SubjectHash: service.PublishSubjectHash(m.Id, deref(m.ContentHash), m.EffectiveDate.String()), ExpiresAt: At.Add(5 * time.Minute)}
+	return auth.GrantClaims{Realm: auth.RealmVendor, Audience: service.GrantAudience, Type: auth.GrantType, JTI: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4ab2",
+		ApprovalID: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a6d", Kind: service.GrantKindPublish, Requester: "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66", Approver: ExampleApprover,
+		SubjectHash: service.PublishSubjectHash(m.Id, deref(m.ContentHash), m.EffectiveDate.String()), IssuedAt: now.Unix(), ExpiresAt: now.Add(auth.MaxGrantLifetime).Unix()}
 }
 
 func deref(s *string) string {
@@ -336,4 +379,21 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// DigestDayRows are the rows of the digest-day world (api-specs examples/digests/billing-digest-day.json): entity, row id,
+// fields. The digest example of that world is the digest of exactly these rows.
+func DigestDayRows() map[string]map[string]map[string]any {
+	var fx struct {
+		Rows map[string]map[string]map[string]any `json:"rows"`
+	}
+	if err := json.Unmarshal(digestDayJSON, &fx); err != nil {
+		panic(err)
+	}
+	return fx.Rows
+}
+
+// ExampleDigest is the 200 example of getBillingProjectionDigest.
+func ExampleDigest() gen.ProjectionDigest {
+	return resp[gen.ProjectionDigest](examples(), "getBillingProjectionDigest")
 }

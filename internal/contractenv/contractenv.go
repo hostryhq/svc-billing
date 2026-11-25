@@ -24,11 +24,10 @@ import (
 )
 
 // ExampleUnreachable are the operations whose response example no implementation can reproduce byte for byte; each is a
-// spec problem reported to api-specs. The example worlds are consistent since api-specs 1462fb8, so what remains is
-// listed here with its reason and checked for status, media type and schema only.
+// spec problem reported to api-specs. The example worlds, the listBills example and the digest (digest-day world) are
+// consistent since api-specs b153c62, so what remains is listed here with its reason and checked for status, media type and schema only.
 var ExampleUnreachable = map[string]string{
-	"getBillingProjectionDigest": "the example hashes are SHA-256 of the words foo and test, not of any projection; the digest is computed",
-	"signTaxRuleSet":             "the example's content_hash is a made-up value; signing stores the real hash of the content (the shared vectors fix it only for the publish subject hash)",
+	"signTaxRuleSet": "the example's content_hash is a made-up value; signing stores the real hash of the content (the shared vectors fix it only for the publish subject hash)",
 }
 
 // SpecPath returns the billing OpenAPI document of the pinned api-specs (or API_SPECS_DIR), with common/ beside it.
@@ -67,12 +66,6 @@ func (t transport) RoundTrip(r *http.Request) (*http.Response, error) {
 			r.Header.Set(k, vs[0])
 		}
 	default:
-		if r.URL.Path == "/v1/bills" {
-			// the one correction left: the spec's listBills example sends verification=mismatch and shows a verified bill
-			q := r.URL.Query()
-			q.Del("verification")
-			r.URL.RawQuery = q.Encode()
-		}
 		r.Header.Set("Authorization", "Bearer "+t.tk.TenantToken(ids.ID(seed.Tenant)))
 	}
 	return http.DefaultTransport.RoundTrip(r)

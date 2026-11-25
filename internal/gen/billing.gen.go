@@ -2290,7 +2290,7 @@ type EntityDigest struct {
 	// Example: bill
 	Entity string `json:"entity"`
 
-	// Hash Lowercase hex SHA-256 of the canonical rows.
+	// Hash Lowercase hex SHA-256 over the canonical row texts of the entity, ascending id, each followed by a line feed.
 	//
 	// Example: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 	Hash string `json:"hash"`
@@ -2827,7 +2827,7 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// ProjectionDigest Digest of this service's projection of one outlet business day, to compare with a device's local state (ADR-0014 tests T2, T9, T11). x-provisional: the canonical-row rule belongs to go-common/sync.
+// ProjectionDigest Digest of this service's projection of one outlet business day, to compare with a device's local state (ADR-0014 tests T2, T9, T11). Algorithm sha256-canon-v1 (sync/protocol-v1.md, Projection digest): the rows of the entities this service owns that belong to the business day (a business_date equal to it, or a parent that has one), tombstoned rows left out. A row is the canonical JSON (RFC 8785, integers only) of an object holding id and every schema field the row has set, without pii fields and without absent fields. An entity digest is the lower-case hex SHA-256 over the row texts in ascending id order, each followed by a line feed; state_hash is the SHA-256 over the line '<entity>, line feed, row_count, line feed, hash, line feed' for each listed entity in ascending name order. Only entities with at least one row are listed. examples/digests holds the rows of the example world and CI recomputes the example from them.
 type ProjectionDigest struct {
 	// Algorithm Digest algorithm id.
 	//
@@ -2852,7 +2852,7 @@ type ProjectionDigest struct {
 	// Example: 0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b
 	OutletId Id `json:"outlet_id"`
 
-	// StateHash SHA-256 over the entity digests in entity-name order.
+	// StateHash Lower-case hex SHA-256 over the entity digests in ascending entity-name order (see the schema description).
 	//
 	// Example: 2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae
 	StateHash string `json:"state_hash"`
@@ -3983,7 +3983,7 @@ type CreateTaxRuleSetDraftParams struct {
 	// XVendorClientAddress Network address of the staff member's browser, passed down by the admin service. Trusted only together with the admin service token; used for the audit record alone.
 	XVendorClientAddress *VendorClientAddress `json:"X-Vendor-Client-Address,omitempty"`
 
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
@@ -3992,7 +3992,7 @@ type DeleteTaxRuleSetDraftParams struct {
 	// XVendorClientAddress Network address of the staff member's browser, passed down by the admin service. Trusted only together with the admin service token; used for the audit record alone.
 	XVendorClientAddress *VendorClientAddress `json:"X-Vendor-Client-Address,omitempty"`
 
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
@@ -4010,19 +4010,19 @@ type UpdateTaxRuleSetDraftParams struct {
 	// XVendorClientAddress Network address of the staff member's browser, passed down by the admin service. Trusted only together with the admin service token; used for the audit record alone.
 	XVendorClientAddress *VendorClientAddress `json:"X-Vendor-Client-Address,omitempty"`
 
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // PublishTaxRuleSetParams defines parameters for PublishTaxRuleSet.
 type PublishTaxRuleSetParams struct {
-	// HostryVendorApproval Signed, single-use vendor approval grant from identity (ADR-0014 A1.3, A2.6): a compact JWS, ES256, signed with identity's vendor-realm key (`kid` in the header), 5 minutes. Claims are in the schema VendorApprovalGrantClaims; the subject hash is defined there and checked by the shared vectors in common/vendor-grant.vectors.v1.json. The executing service verifies in this order: signature and kid; typ, realm and aud (the service itself); exp; kind (the one this operation executes); org (equals the path organisation, or absent); approver (equals the subject of the bearer vendor token, which holds the kind's approve permission); the subject hash, recomputed from the path and the service's own stored state, never from a value the caller sends; then jti is inserted into approval_grant_used in the action's own transaction. Refusals are 403 with code grant.required (no header), grant.invalid (signature, kid, typ, realm, aud, kind, org or approver), grant.expired (exp), grant.subject_mismatch or grant.used. The grant never reaches a browser. approval_id is a parameter of the admin facade only; an executing service takes it from the grant.
+	// HostryVendorApproval Signed, single-use vendor approval grant from identity (ADR-0014 A1.3, A2.6): a compact JWS, ES256, signed with identity's vendor-realm key (`kid` in the header), 5 minutes. Claims are in the schema VendorApprovalGrantClaims; the subject hash is defined there and checked by the shared vectors in common/vendor-grant.vectors.v1.json. The executing service verifies in this order: signature and kid; typ, realm and aud (the service itself); exp; kind (the one this operation executes); org (equals the path organisation; the literal platform for a platform-wide kind); approver (equals the subject of the bearer vendor token, which holds the kind's approve permission); the subject hash, recomputed from the path and the service's own stored state, never from a value the caller sends; then jti is inserted into approval_grant_used in the action's own transaction. Refusals are 403 with code grant.required (no header), grant.invalid (signature, kid, typ, realm, aud, kind, org or approver), grant.expired (exp), grant.subject_mismatch or grant.used. The grant never reaches a browser. approval_id is a parameter of the admin facade only; an executing service takes it from the grant.
 	HostryVendorApproval VendorApprovalGrant `json:"Hostry-Vendor-Approval"`
 
 	// XVendorClientAddress Network address of the staff member's browser, passed down by the admin service. Trusted only together with the admin service token; used for the audit record alone.
 	XVendorClientAddress *VendorClientAddress `json:"X-Vendor-Client-Address,omitempty"`
 
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
@@ -4031,7 +4031,7 @@ type SignTaxRuleSetParams struct {
 	// XVendorClientAddress Network address of the staff member's browser, passed down by the admin service. Trusted only together with the admin service token; used for the audit record alone.
 	XVendorClientAddress *VendorClientAddress `json:"X-Vendor-Client-Address,omitempty"`
 
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
@@ -4040,7 +4040,7 @@ type ValidateTaxRuleSetParams struct {
 	// XVendorClientAddress Network address of the staff member's browser, passed down by the admin service. Trusted only together with the admin service token; used for the audit record alone.
 	XVendorClientAddress *VendorClientAddress `json:"X-Vendor-Client-Address,omitempty"`
 
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
@@ -4202,19 +4202,19 @@ type ListInternalConsumptionsParams struct {
 
 // SetDiscountLimitParams defines parameters for SetDiscountLimit.
 type SetDiscountLimitParams struct {
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // SetNumberingModeParams defines parameters for SetNumberingMode.
 type SetNumberingModeParams struct {
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // SetOutletTaxProfileParams defines parameters for SetOutletTaxProfile.
 type SetOutletTaxProfileParams struct {
-	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid).
+	// IdempotencyKey Client-generated unique key, 1-128 visible ASCII characters (a UUIDv7 is recommended). A replay with the same key and request returns the original status and body without repeating the effect. The same key with a different request returns 422 (code idempotency.mismatch); the same key while the first request is still in progress returns 409 (code idempotency.in_progress); an invalid key returns 422 (code idempotency.key_invalid). Records expire after 24 hours. An operation whose response carries a one-time secret (token, refresh token, code, code half, grant, offline pack) never has that response stored: its replay returns 409 (code idempotency.replay_secret) and the client repeats the operation with a new key. Token-issuing operations (sessions, refresh, device and drain tokens) are not recorded; a replay runs again and meets the credential checks.
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
@@ -4718,7 +4718,7 @@ type ClientInterface interface {
 
 	// SetDiscountLimitWithBody Set the cashier discount limit
 	//
-	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -4727,7 +4727,7 @@ type ClientInterface interface {
 
 	// SetDiscountLimit Set the cashier discount limit
 	//
-	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -4754,7 +4754,7 @@ type ClientInterface interface {
 
 	// SetOutletTaxProfileWithBody Set the GST profile of an outlet for a financial year
 	//
-	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -4763,7 +4763,7 @@ type ClientInterface interface {
 
 	// SetOutletTaxProfile Set the GST profile of an outlet for a financial year
 	//
-	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -5303,7 +5303,7 @@ func (c *Client) GetOutletBillingConfig(ctx context.Context, outletId Id, reqEdi
 
 // SetDiscountLimitWithBody Set the cashier discount limit
 //
-// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 //
 // Takes any type of body and a specified content type.
 //
@@ -5322,7 +5322,7 @@ func (c *Client) SetDiscountLimitWithBody(ctx context.Context, outletId Id, para
 
 // SetDiscountLimit Set the cashier discount limit
 //
-// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -5379,7 +5379,7 @@ func (c *Client) SetNumberingMode(ctx context.Context, outletId Id, params *SetN
 
 // SetOutletTaxProfileWithBody Set the GST profile of an outlet for a financial year
 //
-// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 //
 // Takes any type of body and a specified content type.
 //
@@ -5398,7 +5398,7 @@ func (c *Client) SetOutletTaxProfileWithBody(ctx context.Context, outletId Id, p
 
 // SetOutletTaxProfile Set the GST profile of an outlet for a financial year
 //
-// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 //
 // Takes a body of the `application/json` content type.
 //
@@ -8982,7 +8982,7 @@ type ClientWithResponsesInterface interface {
 
 	// SetDiscountLimitWithBodyWithResponse Set the cashier discount limit
 	//
-	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -8991,7 +8991,7 @@ type ClientWithResponsesInterface interface {
 
 	// SetDiscountLimitWithResponse Set the cashier discount limit
 	//
-	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+	// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -9018,7 +9018,7 @@ type ClientWithResponsesInterface interface {
 
 	// SetOutletTaxProfileWithBodyWithResponse Set the GST profile of an outlet for a financial year
 	//
-	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -9027,7 +9027,7 @@ type ClientWithResponsesInterface interface {
 
 	// SetOutletTaxProfileWithResponse Set the GST profile of an outlet for a financial year
 	//
-	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+	// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -12092,7 +12092,7 @@ func (c *ClientWithResponses) GetOutletBillingConfigWithResponse(ctx context.Con
 
 // SetDiscountLimitWithBodyWithResponse Set the cashier discount limit
 //
-// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -12107,7 +12107,7 @@ func (c *ClientWithResponses) SetDiscountLimitWithBodyWithResponse(ctx context.C
 
 // SetDiscountLimitWithResponse Set the cashier discount limit
 //
-// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op.
+// strong_only (RM-D2). The number never travels in tokens. Emits a billing_settings config op, a set of discount_limit_bp, or an insert of the row with defaults when the outlet has none yet.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -12152,7 +12152,7 @@ func (c *ClientWithResponses) SetNumberingModeWithResponse(ctx context.Context, 
 
 // SetOutletTaxProfileWithBodyWithResponse Set the GST profile of an outlet for a financial year
 //
-// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -12167,7 +12167,7 @@ func (c *ClientWithResponses) SetOutletTaxProfileWithBodyWithResponse(ctx contex
 
 // SetOutletTaxProfileWithResponse Set the GST profile of an outlet for a financial year
 //
-// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits an outlet_tax_profile config op (lww + review).
+// strong_only, online only (RM-T2, RM-A5); audited. The specified-premises flag is refused 422 specified_premises_retroactive for a financial year that started more than the allowed days ago. Emits one settings.tax_profile.set config op (lww + review) that carries the outlet_tax_profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (set, or an insert with defaults when the row does not exist).
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //

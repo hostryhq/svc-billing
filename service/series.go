@@ -4,6 +4,8 @@ import (
 	"context"
 	"sort"
 
+	gsync "github.com/hostryhq/go-common/sync"
+
 	"github.com/hostryhq/svc-billing/internal/gen"
 	"github.com/hostryhq/svc-billing/repository"
 )
@@ -23,6 +25,9 @@ type SeriesIssued struct {
 	DeviceID       string `json:"device_id,omitempty"`
 	Closed         bool   `json:"closed,omitempty"`
 	CloseCause     string `json:"close_cause,omitempty"`
+	// FinancialYear is the year the device's series.close statement names (four digits); empty for a drain statement, which
+	// is compared with the newest year of the register.
+	FinancialYear string `json:"financial_year,omitempty"`
 	// LastNumber is the device's statement of its last running number (the drain record); nil until it arrives.
 	LastNumber *int64 `json:"last_number,omitempty"`
 	// Reconciled is set once billing.series.reconciled was published; it is published once per series.
@@ -74,6 +79,23 @@ func (s *Service) RecordDrain(ctx context.Context, stmts []SeriesStatement) erro
 			}
 		}
 		return nil
+	})
+}
+
+// recordStatement takes a device's series.close record (ADR-0014 A2.5 item 2; the op's series_close control record): the last
+// running number it allocated from the series, with the series code and financial year. The first statement stands, a
+// replay or a second number is ignored, and a statement from a device other than the one the series was issued to is
+// ignored (the gateway checked it too). The series is reconciled once it is closed and the register is complete.
+func (s *Service) recordStatement(ctx context.Context, tx repository.Tx, origin string, sc gsync.SeriesClose) error {
+	return s.mergeSeries(ctx, tx, sc.SeriesID, func(r *SeriesIssued) {
+		if r.LastNumber != nil || (r.DeviceID != "" && r.DeviceID != origin) {
+			return
+		}
+		n := sc.LastNumber
+		r.LastNumber, r.FinancialYear = &n, sc.FY
+		if r.Code == "" {
+			r.Code = sc.Code
+		}
 	})
 }
 
@@ -136,6 +158,16 @@ func (s *Service) linkRegister(ctx context.Context, tx repository.Tx, si SeriesI
 	return nil
 }
 
+func filterYear(recs []SeriesRec, fy string) []SeriesRec {
+	var out []SeriesRec
+	for _, r := range recs {
+		if r.Series.FinancialYear == fy {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 // missingUpTo counts the numbers in 1..last that the intervals do not hold.
 func missingUpTo(r [][2]int64, last int64) int64 {
 	var held int64
@@ -164,10 +196,13 @@ func (s *Service) reconcile(ctx context.Context, tx repository.Tx, si SeriesIssu
 		return err
 	}
 	var latest *SeriesRec
+	_ = docs
+	if si.FinancialYear != "" { // a series.close statement names its year
+		recs = filterYear(recs, si.FinancialYear)
+	}
 	if n := len(recs); n > 0 {
 		sort.SliceStable(recs, func(i, j int) bool { return recs[i].Series.FinancialYear < recs[j].Series.FinancialYear })
 		latest = &recs[len(recs)-1]
-		_ = docs
 	}
 	var ranges [][2]int64
 	if latest != nil {

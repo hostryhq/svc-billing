@@ -130,18 +130,6 @@ func (r *Repo) Ping(ctx context.Context) error {
 // SyncStore implements repository.Tx: the engine's Postgres store on this transaction.
 func (x *pgTx) SyncStore() gsync.Store { return gsync.PGStore{DB: x.tx} }
 
-func (x *pgTx) PutPII(ctx context.Context, w gsync.PIIWrite) error {
-	return gsync.PGStore{DB: x.tx}.PutPII(ctx, w)
-}
-
-func (x *pgTx) ErasePII(ctx context.Context, op gsync.OpRef) (int64, error) {
-	res, err := x.tx.ExecContext(ctx, `DELETE FROM sync_pii WHERE tenant_id = $1 AND origin = $2 AND stream = $3 AND seq = $4`, x.t.String(), op.Origin, op.Stream, op.Seq)
-	if err != nil {
-		return 0, err
-	}
-	return res.RowsAffected()
-}
-
 func (x *pgTx) EnqueueEmit(ctx context.Context, now time.Time, ops ...emit.Op) error {
 	return emit.Enqueue(ctx, x.tx, now, x.t, ops...)
 }

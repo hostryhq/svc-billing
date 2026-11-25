@@ -52,7 +52,7 @@ func Handler(repo *pg.Repo, svc *service.Service) inbox.Handler {
 				return err
 			}
 			return repo.InSQLTx(ctx, tx, e.TenantID, func(ctx context.Context, rtx repository.Tx) error {
-				_, err := rtx.ErasePII(ctx, gsync.OpRef{Origin: d.Origin, Stream: d.Stream, Seq: d.Seq})
+				_, err := rtx.SyncStore().AddErasure(ctx, e.TenantID.String(), gsync.OpRef{Origin: d.Origin, Stream: d.Stream, Seq: d.Seq})
 				return err
 			})
 		case e.Type == "tenancy.organisation.created":

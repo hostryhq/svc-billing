@@ -1,43 +1,46 @@
 # Notes: choices, gaps and spec problems (Phase 2)
 
 Conservative choices made without an ADR, and what is open. Spec problems are for `api-specs`; nothing here edits it.
-Adopted: api-specs `feat/phase2-specs` 1462fb8, go-common `feat/phase2-libs` c6c0fc7, ADR-0014 A2 (sync op event, emit, grant).
+Adopted: api-specs `feat/phase2-specs` b153c62, go-common `feat/phase2-libs` 92884d6, go-auth `feat/phase2-auth` 94f1970, ADR-0014 A2 (sync op event, emit, grant).
 
 ## Open points and ADR candidates
 
 - **Internal consumption (O2-1)** stays provisional: stored and listed as a non-sales document, shown on the day totals as its own
   line; no number from the sale series.
-- **Grant verification.** go-auth is to own issue and verification (`SubjectHash` included); until then `internal/grant` checks only the
-  ES256 signature and key id behind `service.GrantVerifier`. Everything else of A2.6 item 4 (typ, realm, aud = billing, exp, kind,
-  no org, approver = the bearer's subject, subject hash from billing's own stored version, single use) is the service's, in
-  `PublishTaxRuleSet`, so it does not change when the verifier does. Subject hash and claim names are the shared vectors
-  (`internal/grant` test). Open: how the `grant.invalid` family reaches identity's catalogue (new problem types).
-- **`series.close` statement.** The control intent's `series_close` record is not part of `sync.Op` (go-common parses mutations only),
-  so billing reconciles from `identity.device.drained` (series id and last number) plus `tenancy.series.closed`. A device that closes a
-  series without being revoked states its last number only in the op record: ADR needed on whether `ParseOp` exposes control records
-  (then `RecordDrain` takes them too). The statement carries no financial year: billing compares it with the newest year's numbers.
-- **`setDiscountLimit` before any settings row.** `settings.discount_limit.set` lists only `set` for `billing_settings` (no `insert`), and a
-  `set` on a row nobody inserted stays parked in the engine. Devices or the numbering/profile edit create the row. If that is not
-  guaranteed at outlet creation, the intent needs `insert` too.
+- **Grant verification** is go-auth's `GrantVerifier` (ES256 under the vendor key set by kid; iss, realm, aud = billing, typ, kind, no org,
+  approver = the bearer's subject, requester differs, lifetime at most 300 s, exp, then the subject hash that billing recomputes from its
+  own stored version with `auth.SubjectHash`). Single use stays billing's: the verifier's `Used` hook is nil and `GlobalTx.UseGrant` records
+  the jti in the publication's transaction. `BILLING_GRANT_ISSUER` (default `https://identity.hostry.invalid/vendor`, the contract
+  example's iss) is the expected issuer; `BILLING_GRANT_KEYS` the key set. The double signs real grants under its own key
+  (`double.Grants`) and maps the contract's example token to a fresh publish grant. Open: how the `grant.*` family reaches identity's
+  catalogue (new problem types).
+- **`series.close` statement.** `ParseOp` now exposes the control record (`Op.SeriesClose`: series id, code, financial year, last number).
+  `ApplyOp` takes it as the device's statement (first one stands; a statement from a device other than the one the series was issued to is
+  ignored) and `billing.series.reconciled` is published once when the series is closed (`tenancy.series.closed`), stated and the register
+  holds every number up to it. The statement's financial year picks the register series; a drain statement (`identity.device.drained`)
+  has none and is compared with the newest year. A statement alone does not close a series: closing stays tenancy's.
+- **`setDiscountLimit` before any settings row** is an insert of the row with defaults (b153c62), the limit as given; a set otherwise.
+  The fields the API does not show take assumed defaults: `service_charge_dine_in` true, `_takeaway` and `_counter` false,
+  `packing_charge_paise` 0, `packing_tax_class` `fnb_standard`, `day_cutoff_minutes` 300 (the entity states only the last). Confirm.
+  Because the op shape now depends on stored state, the two routes whose body depends on it record their answer under the
+  Idempotency-Key and replay it without emitting (a retry never reaches the gateway with another body for the same derived key). Open: a
+  crash between the emit and that record leaves a retry to rebuild the op; if the row has appeared meanwhile the gateway answers
+  `idempotency.mismatch`.
 
-## Spec problems found (api-specs feat/phase2-specs 1462fb8)
+## Spec problems found (api-specs feat/phase2-specs b153c62)
 
 Fixed upstream since the first pass and removed here: the inconsistent example worlds, the `next_cursor` lines, the report and register
 aggregates, the 48 versus 64 vectors, the OutletScope id, the stale `If-Match`, the old series codes. What is left:
 
-1. `listBills` sends `verification=mismatch` and shows a verified bill. The contract transport drops that one query parameter (the only
-   correction left in `internal/contractenv`).
-2. `getBillingProjectionDigest`: the example hashes are SHA-256 of the words `foo` and `test`; the digest is computed, so it is checked
-   for status, media type and schema only. `signTaxRuleSet`: the example `content_hash` is a made-up value; signing stores the real hash.
-   Both are in `contractenv.ExampleUnreachable`.
+1. Fixed upstream in b153c62 and removed here: the `listBills` example (the contract transport no longer drops a query parameter), the
+   digest example (`digest-day` world, `examples/digests`; billing computes it) and the `price_mode` carrier (`settings.tax_profile.set`).
+2. `signTaxRuleSet`: the example `content_hash` is a made-up value; signing stores the real hash. It is in `contractenv.ExampleUnreachable`.
 3. The work package says the billing publish route has `approval_id` and a 409 `approval_not_executable`. The spec says they belong to
    the admin facade only; the billing route takes the approval from the grant and answers `grant.*`. Billing follows the spec.
 4. `publishTaxRuleSet` example `published_at` is 13:09:11.120 and the world's other examples are 13:05:11.120. The double and the Postgres
    stack run the `rule-set-signed` world four minutes later (`seed.WorldAt`) to match; and the example states no
    `organisations_acknowledged`, so the publication answer omits it (the queued emits are not acknowledged yet; GET states both).
-5. `setOutletTaxProfile` accepts `price_mode`, but `settings.tax_profile.set` lists only `outlet_tax_profile`, and `price_mode` is a
-   `billing_settings` field: there is no intent that carries it with this edit. It is validated and not emitted.
-6. `getSeriesLastSeen` example uses series 4a6c with register code A7K (consistent now); it needs `tenancy.series.issued` to have arrived.
+5. `getSeriesLastSeen` example uses series 4a6c with register code A7K (consistent now); it needs `tenancy.series.issued` to have arrived.
 
 ## Tax engine
 
@@ -63,7 +66,15 @@ aggregates, the 48 versus 64 vectors, the OutletScope id, the stale `If-Match`, 
   field group, highest stamp wins), an edit before its insert, and a void converge whatever the arrival order. The trading facts (bills,
   payments, days, credit notes, refunds, shifts) are immutable inserts folded once per op by `(origin, stream, seq)` (`applied_ops`)
   into the read models and aggregates. A row exposed by a void is written under the voided op's outlet stream.
-- Personal data beside an op (`bill.customer_name`) goes to `sync_pii` and never into a read model; `sync.pii.erased` deletes it.
+- Personal data beside an op (`bill.customer_name`) is verified by `ParseOp` against the salted commitment in the sealed body (`pii_c`),
+  then kept by the engine in `sync_pii` (value, salt, commitment) and never in a read model. The cloud-origin `sync.pii.erase` op (parsed to
+  `Op.PIIErase`) and the `sync.pii.erased` event both record the erasure (`sync_pii_erased`) and empty the values and salts of that op,
+  keeping the commitments; an op whose erasure arrived first never stores its data.
+- Projection digest (`sha256-canon-v1`): each owned row that belongs to a business day (own `business_date`, or `bill_id` /
+  `credit_note_id` parent) is kept as a `digest_row` document holding its canonical text (RFC 8785 of id and the set non-pii fields, from
+  the engine's resolved row); a voided or tombstoned row's document is deleted. `getBillingProjectionDigest` hashes them per entity and
+  overall as `sync/protocol-v1.md` says, and equals `examples/digests` (unit test). Children whose parent arrives later take the parent's
+  day then. Rows through `order_id`, `check_id` or `kot_id` parents belong to orders and are not billing's.
 - Read models are documents (`docs`: one row per tenant, kind, id; JSONB body) holding the API representation, with the columns lists
   filter and sort on. Reports read daily aggregates kept by the projection, not raw bills. Late documents are included in the
   aggregates (original Z plus revisions equals the projection). Credit notes do not reduce the item, category, staff and hourly reports.

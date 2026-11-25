@@ -126,13 +126,9 @@ type Tx interface {
 	// Publish writes e to the outbox in this transaction, assigning key_seq per key.
 	Publish(ctx context.Context, e events.Envelope) error
 
-	// SyncStore is the projection engine's store (go-common sync) bound to this transaction, so candidates commit with
-	// the read models and the inbox row.
+	// SyncStore is the projection engine's store (go-common sync) bound to this transaction, so candidates, the personal
+	// data side table (values and salts erasable, commitments kept) and erasures commit with the read models and the inbox row.
 	SyncStore() gsync.Store
-	// PutPII keeps the personal data an op carried beside its mutations (owned entities only, never in a read model);
-	// ErasePII removes it again (the reaction to sync.pii.erased). Both are idempotent.
-	PutPII(ctx context.Context, w gsync.PIIWrite) error
-	ErasePII(ctx context.Context, op gsync.OpRef) (int64, error)
 
 	// EnqueueEmit adds cloud-origin ops to emit_queue for this tenant in this transaction, so they exist exactly when
 	// the state change that caused them commits (go-common emit). An op whose key is already queued is ignored.

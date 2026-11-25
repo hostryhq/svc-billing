@@ -21,7 +21,7 @@ docs/              operations-status.md (every operationId), notes.md (choices, 
 
 ## Run
 Config is environment only (`internal/config`): `BILLING_DB_APP_DSN`, `BILLING_DB_GLOBAL_DSN`, optional `BILLING_DB_RELAY_DSN`,
-`BILLING_TENANT_JWKS`, `BILLING_VENDOR_JWKS`, `BILLING_SERVICE_KEYS`, `BILLING_GRANT_KEYS` (URLs or file paths, never values),
+`BILLING_TENANT_JWKS`, `BILLING_VENDOR_JWKS`, `BILLING_SERVICE_KEYS`, `BILLING_GRANT_KEYS` (URLs or file paths, never values), `BILLING_GRANT_ISSUER` (iss of vendor approval grants),
 `NATS_URL` and `NATS_SEED_FILE` for the bus, `BILLING_PUBLISH_LEAD` (default 24h), `BILLING_ORDERS_URL`, `BILLING_GATEWAY_URL` (sync gateway, `POST /internal/v1/emit`; unset: settings routes answer 503 `emit.unavailable` and queued emissions wait), `BILLING_SERVICE_KEY_FILE`. Roles are created by
 `scripts/provision-roles.sql` (deployment owns it); `billing migrate` applies the schema as the migrator role.
 

@@ -38,7 +38,7 @@ func (s *Service) Owns(op Op) bool {
 			return true
 		}
 	}
-	return len(op.Voids) > 0
+	return len(op.Voids) > 0 || len(op.PIIErase) > 0 || len(op.SeriesClose) > 0
 }
 
 // Name is the service name in the registry (entity owner) and in service tokens.
@@ -83,8 +83,10 @@ func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
 	if err != nil {
 		return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
 	}
-	for _, w := range res.PII {
-		if err := tx.PutPII(ctx, w); err != nil {
+	// personal data (verified against its commitments by ParseOp) and erasures were written through the engine's store; the
+	// device's series statements and the digest rows follow
+	for _, sc := range op.SeriesClose {
+		if err := s.recordStatement(ctx, tx, op.Origin, sc); err != nil {
 			return err
 		}
 	}
@@ -93,6 +95,9 @@ func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
 		rows[r.Key.Entity] = append(rows[r.Key.Entity], r)
 	}
 	ac := &applyCtx{s: s, tx: tx, op: op, outlet: op.OutletOf(), tenant: t, g: byEntity(op.Muts), rows: rows}
+	if err := ac.digestRows(ctx, reg, res.Rows); err != nil {
+		return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
+	}
 	for _, step := range []func(context.Context) error{
 		ac.config, ac.ruleSets, ac.dayOpen, ac.shifts, ac.bills, ac.creditNotes, ac.payments, ac.refunds, ac.internal, ac.dayClose,
 	} {

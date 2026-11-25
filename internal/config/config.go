@@ -22,6 +22,8 @@ type Config struct {
 	SelfName string
 	// Issuer and audience names of the two token realms (ADR-0005).
 	TenantIssuer, TenantAudience, VendorIssuer, VendorAudience string
+	// GrantIssuer is the iss of vendor approval grants (identity's vendor realm, A2.6; the contract example uses the .invalid host).
+	GrantIssuer string
 	// OrdersURL is orders' base URL for the open-check count (empty: the numbering-mode route answers 503).
 	OrdersURL string
 	// GatewayURL is the sync gateway base URL for POST /internal/v1/emit (empty: the settings routes answer 503
@@ -55,6 +57,7 @@ func Load(lookup config.Lookup) (Config, error) {
 		TenantAudience: l.String("BILLING_TENANT_AUDIENCE", "hostry-tenant"),
 		VendorIssuer:   l.String("BILLING_VENDOR_ISSUER", "hostry-identity-vendor"),
 		VendorAudience: l.String("BILLING_VENDOR_AUDIENCE", "hostry-vendor"),
+		GrantIssuer:    l.String("BILLING_GRANT_ISSUER", "https://identity.hostry.invalid/vendor"),
 		OrdersURL:      l.String("BILLING_ORDERS_URL", ""),
 		GatewayURL:     l.String("BILLING_GATEWAY_URL", ""),
 		ServiceKeyFile: l.String("BILLING_SERVICE_KEY_FILE", ""),

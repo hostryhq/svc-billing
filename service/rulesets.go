@@ -28,51 +28,28 @@ import (
 // GrantKindPublish is the grant kind this service executes.
 const GrantKindPublish = "tax_rule_set_publish"
 
-// Grant is the content of a vendor approval grant after its signature was verified (claim names per A2.6 item 1:
-// api-specs common/vendor.yaml VendorApprovalGrantClaims). The service checks every other claim itself.
-type Grant struct {
-	ID          string // jti
-	ApprovalID  string
-	Kind        string
-	Type        string // typ, always vendor_approval
-	Realm       string // always vendor
-	Audience    string // aud, the executing service
-	Org         string // absent (empty) for tax_rule_set_publish
-	Requester   string
-	Approver    string
-	SubjectHash string
-	ExpiresAt   time.Time
-}
+// GrantAudience is the audience (aud) of the grants billing executes.
+const GrantAudience = "billing"
 
-// Errors of a grant check; the service maps them to 403 grant.invalid, grant.expired and grant.required.
-var (
-	ErrGrantInvalid = errors.New("service: grant invalid")
-	ErrGrantExpired = errors.New("service: grant expired")
-)
-
-// GrantVerifier checks a grant's signature and key id (A2.6 item 4, first check) and returns its claims. go-auth is to
-// own the implementation (issue, verify, subject hash); until then svc-billing's internal/grant implements it. Every
-// check after the signature is the service's, below.
+// GrantVerifier is go-auth's vendor approval grant verifier (ADR-0014 A2.6): *auth.GrantVerifier implements it, and the
+// double signs real grants under its own key and verifies them with the same code. billing leaves the verifier's single-use
+// hook (Used) unset and consumes the jti itself in the publication's transaction (GlobalTx.UseGrant), so the grant, the
+// state change and the emissions commit or roll back together.
 type GrantVerifier interface {
-	Verify(ctx context.Context, raw string) (Grant, error)
+	Verify(ctx context.Context, token string, want auth.GrantWant) (*auth.GrantClaims, error)
 }
 
-// PublishSubjectHash is the subject hash of a tax_rule_set_publish grant (A2.6 item 2): the lower-case hex SHA-256 of
-// "tax_rule_set_publish\n<rule-set id>\n<content hash>\n<effective date>", no trailing newline. The service computes it
-// from its own stored version, never from a value the caller sends.
+// PublishSubjectHash is the subject hash of a tax_rule_set_publish grant (A2.6 item 2): go-auth's SubjectHash of the kind,
+// the rule-set id, the content hash and the effective date. The service computes it from its own stored version, never from
+// a value the caller sends.
 func PublishSubjectHash(ruleSetID, contentHash, effectiveDate string) string {
-	sum := sha256.Sum256([]byte(GrantKindPublish + "\n" + ruleSetID + "\n" + contentHash + "\n" + effectiveDate))
-	return hex.EncodeToString(sum[:])
+	return auth.SubjectHash(GrantKindPublish, ruleSetID, contentHash, effectiveDate)
 }
 
 // ErrPrecondition is a stale If-Match (412 precondition_failed).
 var ErrPrecondition = errors.New("service: precondition failed")
 
 func conflict(code, detail string) error { return apperr.New(apperr.Conflict, code, detail) }
-
-func grantErr(code string) error {
-	return apperr.New(apperr.Forbidden, code, "the approval grant was refused")
-}
 
 // ---- stored master ----
 
@@ -335,27 +312,10 @@ func (s *Service) SignTaxRuleSet(ctx context.Context, id string, so gen.SignOff)
 // one emission queued per known organisation, all in one transaction (A1.3, A1.4).
 func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (gen.TaxRuleSetMaster, error) {
 	if rawGrant == "" || s.grants == nil {
-		return gen.TaxRuleSetMaster{}, grantErr("grant.required")
-	}
-	g, err := s.grants.Verify(ctx, rawGrant)
-	if err != nil {
-		if errors.Is(err, ErrGrantExpired) {
-			return gen.TaxRuleSetMaster{}, grantErr("grant.expired")
-		}
-		return gen.TaxRuleSetMaster{}, grantErr("grant.invalid")
+		return gen.TaxRuleSetMaster{}, apperr.New(apperr.Forbidden, auth.CodeGrantRequired, "a vendor approval grant is required")
 	}
 	p, _ := auth.PrincipalFrom(ctx)
 	now := s.clock.Now()
-	// A2.6 item 4, in order: typ, realm and aud (this service); exp; kind; org (none for a rule set); approver (the
-	// bearer's subject). The subject hash follows inside the transaction, against the stored version.
-	switch {
-	case g.Type != "vendor_approval" || g.Realm != "vendor" || g.Audience != "billing":
-		return gen.TaxRuleSetMaster{}, grantErr("grant.invalid")
-	case !g.ExpiresAt.IsZero() && now.After(g.ExpiresAt):
-		return gen.TaxRuleSetMaster{}, grantErr("grant.expired")
-	case g.Kind != GrantKindPublish || g.Org != "" || g.Approver == "" || p.Subject != g.Approver:
-		return gen.TaxRuleSetMaster{}, grantErr("grant.invalid")
-	}
 	return runGlobal(ctx, s, func(ctx context.Context, tx repository.GlobalTx) (gen.TaxRuleSetMaster, error) {
 		m, err := s.getMaster(ctx, tx, id)
 		if err != nil {
@@ -364,18 +324,25 @@ func (s *Service) PublishTaxRuleSet(ctx context.Context, id, rawGrant string) (g
 		if m.State != gen.TaxRuleSetMasterStateSigned {
 			return m, apperr.New(apperr.Conflict, "not_signed", "only a signed version can be published")
 		}
-		if g.Requester == g.Approver || g.SubjectHash != PublishSubjectHash(m.Id, deref(m.ContentHash), m.EffectiveDate.String()) {
-			return m, grantErr("grant.subject_mismatch")
+		// Every claim check of A2.6 item 4 is go-auth's, in its order (signature and key id, typ, realm, iss, aud, kind, org,
+		// approver = the bearer's subject, lifetime, exp), then the subject hash that this service recomputes from the stored
+		// version. Single use follows in this transaction.
+		g, err := s.grants.Verify(ctx, rawGrant, auth.GrantWant{Kind: GrantKindPublish, Org: "", Approver: p.Subject,
+			SubjectHash: func() (string, error) {
+				return PublishSubjectHash(m.Id, deref(m.ContentHash), m.EffectiveDate.String()), nil
+			}})
+		if err != nil {
+			return m, err
 		}
 		if m.EffectiveDate.Time.Before(now.Add(s.lead).Truncate(24 * time.Hour)) {
 			return m, validation("effective_date_too_soon", "the effective date is closer than the lead time", field("effective_date", "too_soon"))
 		}
-		first, err := tx.UseGrant(ctx, g.ID, now)
+		first, err := tx.UseGrant(ctx, g.JTI, now)
 		if err != nil {
 			return m, err
 		}
 		if !first {
-			return m, grantErr("grant.used")
+			return m, apperr.New(apperr.Forbidden, auth.CodeGrantUsed, "vendor approval grant was already used")
 		}
 		m.State, m.PublishedAt = gen.TaxRuleSetMasterStatePublished, tstamp.Ptr(now)
 		if err := tx.PutMaster(ctx, toRepo(m)); err != nil {

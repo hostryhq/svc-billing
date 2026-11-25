@@ -1,0 +1,47 @@
+{
+  "world": "digest-day",
+  "spec": "openapi/billing/v1/openapi.yaml",
+  "operation_id": "getBillingProjectionDigest",
+  "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
+  "business_date": "2026-11-24",
+  "rows": {
+    "bill": {
+      "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001": {
+        "number": "A7K/2627/000001",
+        "series_code": "A7K",
+        "doc_type": "tax_invoice",
+        "source_kind": "check",
+        "check_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f6001",
+        "order_type": "dine_in",
+        "eco": false,
+        "business_date": "2026-11-24",
+        "invoice_date": "2026-11-24",
+        "financial_year": "2627",
+        "calc_v": 1,
+        "ruleset_id": "9107573a-9de6-569a-a692-fb53d5d4c799",
+        "price_mode": "exclusive",
+        "gross_paise": 52000,
+        "discount_paise": 4000,
+        "service_charge_bp": 0,
+        "service_charge_paise": 0,
+        "packing_charge_paise": 0,
+        "non_gst_subtotal_paise": 0,
+        "taxable_paise": 48000,
+        "cgst_paise": 1200,
+        "sgst_paise": 1200,
+        "igst_paise": 0,
+        "round_off_paise": 0,
+        "total_paise": 50400
+      }
+    },
+    "payment": {
+      "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7021": {
+        "bill_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f7001",
+        "target_kind": "bill",
+        "tender": "cash",
+        "amount_paise": 50400,
+        "business_date": "2026-11-24"
+      }
+    }
+  }
+}

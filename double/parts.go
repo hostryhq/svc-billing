@@ -11,13 +11,11 @@ import (
 	"sync"
 
 	"github.com/hostryhq/go-auth"
-	"github.com/hostryhq/go-common/apperr"
 	"github.com/hostryhq/go-common/clock"
 	"github.com/hostryhq/go-common/emit"
 	"github.com/hostryhq/go-common/ids"
 	"github.com/hostryhq/go-common/tenancy"
 
-	"github.com/hostryhq/svc-billing/internal/seed"
 	"github.com/hostryhq/svc-billing/service"
 )
 
@@ -97,9 +95,9 @@ var allowed = map[string]struct {
 	stream   string
 }{
 	"tax.rule_set.publish":        {map[string][]string{"tax_rule_set": {"insert"}, "tax_rule": {"insert"}}, "tenant"},
-	"settings.tax_profile.set":    {map[string][]string{"outlet_tax_profile": {"insert", "set"}}, "outlet"},
+	"settings.tax_profile.set":    {map[string][]string{"outlet_tax_profile": {"insert", "set"}, "billing_settings": {"insert", "set"}}, "outlet"},
 	"settings.numbering.set":      {map[string][]string{"billing_settings": {"insert", "set"}}, "outlet"},
-	"settings.discount_limit.set": {map[string][]string{"billing_settings": {"set"}}, "outlet"},
+	"settings.discount_limit.set": {map[string][]string{"billing_settings": {"insert", "set"}}, "outlet"},
 	"day.revision.record":         {map[string][]string{"business_day_revision": {"insert"}}, "outlet"},
 }
 
@@ -236,41 +234,3 @@ func problem(w http.ResponseWriter, status int, code string) {
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]any{"type": "urn:hostry:problem:" + code, "status": status, "code": code})
 }
-
-// Grants is the double's vendor approval grant verifier: the signature check behind service.GrantVerifier, which it
-// replaces with a table. It knows the example grant of the contract (api-specs common/vendor.yaml, a token for another
-// kind) as the publish grant of the rule-set-signed world, and any grant created with Issue. Every claim check after the
-// signature is the real service's own.
-type Grants struct {
-	mu     sync.Mutex
-	issued map[string]service.Grant
-}
-
-// ExampleGrant is the raw grant the contract examples send.
-func ExampleGrant() string { return seed.ExampleGrantToken() }
-
-// Issue registers a grant under raw and returns raw.
-func (g *Grants) Issue(raw string, gr service.Grant) string {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.issued == nil {
-		g.issued = map[string]service.Grant{}
-	}
-	g.issued[raw] = gr
-	return raw
-}
-
-// Verify implements service.GrantVerifier.
-func (g *Grants) Verify(_ context.Context, raw string) (service.Grant, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if gr, ok := g.issued[raw]; ok {
-		return gr, nil
-	}
-	if raw == ExampleGrant() {
-		return seed.ExamplePublishGrant(), nil
-	}
-	return service.Grant{}, service.ErrGrantInvalid
-}
-
-var _ = apperr.Internal

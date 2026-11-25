@@ -40,12 +40,14 @@ type tenant struct {
 	keys  map[string]int64
 	cands map[gsync.RowKey]map[candID]gsync.Candidate // the projection engine's candidates
 	voids map[gsync.OpRef]bool
-	pii   []gsync.PIIWrite
+	pii   map[gsync.RowKey]map[gsync.OpRef]gsync.PIIWrite // side table: values and salts go on erasure, commitments stay
+	gone  map[gsync.OpRef]bool                            // ops whose pii was erased
 }
 
 func newTenant() *tenant {
 	return &tenant{docs: map[string]repository.Doc{}, ops: map[string]string{}, idem: map[string]idemRow{}, keys: map[string]int64{},
-		cands: map[gsync.RowKey]map[candID]gsync.Candidate{}, voids: map[gsync.OpRef]bool{}}
+		cands: map[gsync.RowKey]map[candID]gsync.Candidate{}, voids: map[gsync.OpRef]bool{},
+		pii: map[gsync.RowKey]map[gsync.OpRef]gsync.PIIWrite{}, gone: map[gsync.OpRef]bool{}}
 }
 
 func (t *tenant) clone() *tenant {
@@ -72,7 +74,16 @@ func (t *tenant) clone() *tenant {
 	for k, v := range t.voids {
 		c.voids[k] = v
 	}
-	c.pii = append(c.pii, t.pii...)
+	for k, m := range t.pii {
+		cm := make(map[gsync.OpRef]gsync.PIIWrite, len(m))
+		for r, w := range m {
+			cm[r] = w
+		}
+		c.pii[k] = cm
+	}
+	for k, v := range t.gone {
+		c.gone[k] = v
+	}
 	return c
 }
 
@@ -280,38 +291,19 @@ type tx struct {
 // SyncStore implements repository.Tx: the engine's store over this transaction's tenant state.
 func (x *tx) SyncStore() gsync.Store { return memSync{t: x.t} }
 
-func (x *tx) PutPII(_ context.Context, w gsync.PIIWrite) error {
-	for _, p := range x.t.pii {
-		if p.Key == w.Key && p.Ref == w.Ref {
-			return nil
-		}
-	}
-	x.t.pii = append(x.t.pii, w)
-	return nil
-}
-
-func (x *tx) ErasePII(_ context.Context, op gsync.OpRef) (int64, error) {
-	var kept []gsync.PIIWrite
-	var n int64
-	for _, p := range x.t.pii {
-		if p.Ref == op {
-			n++
-			continue
-		}
-		kept = append(kept, p)
-	}
-	x.t.pii = kept
-	return n, nil
-}
-
-// PII returns the personal data held for a tenant (test helper).
+// PII returns the personal data held for a tenant, erased records included (empty fields; test helper).
 func (s *Store) PII(tenantID string) []gsync.PIIWrite {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	var out []gsync.PIIWrite
 	if t := s.tenants[tenantID]; t != nil {
-		return append([]gsync.PIIWrite(nil), t.pii...)
+		for _, m := range t.pii {
+			for _, w := range m {
+				out = append(out, w)
+			}
+		}
 	}
-	return nil
+	return out
 }
 
 func (x *tx) EnqueueEmit(_ context.Context, _ time.Time, ops ...emit.Op) error {
@@ -647,4 +639,37 @@ func (s *Store) DocCount(tenantID, kind string) int {
 		}
 	}
 	return n
+}
+
+// PutPII implements gsync.Store: idempotent per (row, op) and a no-op for an op whose pii was erased, whatever the order.
+func (m memSync) PutPII(_ context.Context, w gsync.PIIWrite) error {
+	if m.t.gone[w.Ref] {
+		return nil
+	}
+	if m.t.pii[w.Key] == nil {
+		m.t.pii[w.Key] = map[gsync.OpRef]gsync.PIIWrite{}
+	}
+	if _, ok := m.t.pii[w.Key][w.Ref]; !ok {
+		m.t.pii[w.Key][w.Ref] = w
+	}
+	return nil
+}
+
+// AddErasure implements gsync.Store: values and salts go, commitments stay.
+func (m memSync) AddErasure(_ context.Context, _ string, r gsync.OpRef) (int64, error) {
+	m.t.gone[r] = true
+	var n int64
+	for _, byOp := range m.t.pii {
+		if w, ok := byOp[r]; ok && len(w.Fields) > 0 {
+			w.Fields, w.Salts = nil, nil
+			byOp[r] = w
+			n++
+		}
+	}
+	return n, nil
+}
+
+// Erased implements gsync.Store.
+func (m memSync) Erased(_ context.Context, _ string, r gsync.OpRef) (bool, error) {
+	return m.t.gone[r], nil
 }

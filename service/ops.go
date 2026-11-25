@@ -33,9 +33,15 @@ type Op struct {
 	Actor  string
 	Doc    *OpDoc
 	Muts   []Mut
-	// Voids are the ops named by sync_void records, PII the personal data beside the op (both from ParseOp).
-	Voids []gsync.OpRef
-	PII   map[string]map[string]map[string]any
+	// Voids are the ops named by sync_void records. PII is the verified personal data beside the op with its salts and
+	// commitments, PIIErase the ops whose personal data this op erases (intent sync.pii.erase) and SeriesClose the device's
+	// statements of the last number of a closed series (intent series.close); all from ParseOp.
+	Voids       []gsync.OpRef
+	PII         map[string]map[string]map[string]any
+	PIISalts    map[string]map[string]map[string]string
+	PIICommits  gsync.PIIC
+	PIIErase    []gsync.OpRef
+	SeriesClose []gsync.SeriesClose
 }
 
 // OpDoc is the legal document an op allocated a number for.
@@ -47,7 +53,7 @@ type OpDoc struct {
 // OpOf converts a parsed sync op.
 func OpOf(o *gsync.Op) Op {
 	op := Op{Tenant: o.TenantID.String(), Outlet: o.OutletID.String(), Origin: o.Ref.Origin, Stream: o.Ref.Stream, Seq: o.Ref.Seq, Hash: o.H, HLC: o.HLC,
-		Intent: o.Intent, At: o.At, Actor: o.Actor, Muts: o.Muts, Voids: o.Voids, PII: o.PII}
+		Intent: o.Intent, At: o.At, Actor: o.Actor, Muts: o.Muts, Voids: o.Voids, PII: o.PII, PIISalts: o.PIISalts, PIICommits: o.PIICommits, PIIErase: o.PIIErase, SeriesClose: o.SeriesClose}
 	if o.Doc != nil {
 		op.Doc = &OpDoc{Type: o.Doc.Type, Number: o.Doc.Number}
 	}
@@ -57,7 +63,7 @@ func OpOf(o *gsync.Op) Op {
 // syncOp is the engine's view of the op.
 func (o Op) syncOp() *gsync.Op {
 	return &gsync.Op{Ref: gsync.OpRef{Origin: o.Origin, Stream: o.Stream, Seq: o.Seq}, H: o.Hash, Intent: o.Intent, Status: "accepted", TenantID: ids.ID(o.Tenant),
-		OutletID: ids.ID(o.Outlet), Actor: o.Actor, HLC: o.HLC, At: o.At, Muts: o.Muts, Voids: o.Voids, PII: o.PII}
+		OutletID: ids.ID(o.Outlet), Actor: o.Actor, HLC: o.HLC, At: o.At, Muts: o.Muts, Voids: o.Voids, PII: o.PII, PIISalts: o.PIISalts, PIICommits: o.PIICommits, PIIErase: o.PIIErase}
 }
 
 // OutletOf returns the outlet id of an "outlet:<id>" stream ("" for other streams).

@@ -42,7 +42,7 @@ type Config struct {
 	IDs *ids.Generator
 	// OpenChecks answers the open-check count of an outlet (default: none open).
 	OpenChecks service.OpenChecks
-	// Grants is the signature check of vendor approval grants (default: Grants, which knows the example grant).
+	// Grants verifies vendor approval grants (default: Grants, which signs and verifies real ones and maps the contract example).
 	Grants service.GrantVerifier
 }
 
@@ -87,6 +87,9 @@ func New(cfg Config) (*Double, error) {
 	}
 	if cfg.Grants == nil {
 		cfg.Grants = &Grants{}
+	}
+	if g, ok := cfg.Grants.(*Grants); ok && g.Clock == nil {
+		g.Clock = cfg.Clock
 	}
 	store := mem.New()
 	d := &Double{Store: store, idq: newIDQueue(), fake: fake}

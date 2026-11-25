@@ -2,6 +2,8 @@ package service_test
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,18 +18,10 @@ import (
 	"github.com/hostryhq/go-common/apperr"
 	"github.com/hostryhq/go-common/emit"
 
+	"github.com/hostryhq/svc-billing/double"
 	"github.com/hostryhq/svc-billing/internal/gen"
 	"github.com/hostryhq/svc-billing/service"
 )
-
-type fakeGrants map[string]service.Grant
-
-func (g fakeGrants) Verify(_ context.Context, raw string) (service.Grant, error) {
-	if gr, ok := g[raw]; ok {
-		return gr, nil
-	}
-	return service.Grant{}, service.ErrGrantInvalid
-}
 
 func draft(effective string) gen.TaxRuleSetDraft {
 	d, _ := time.Parse("2006-01-02", effective)
@@ -60,15 +54,22 @@ func (f *fixture) vendorCtx(subject string) context.Context {
 	return f.iss.ContextFor(context.Background(), f.cat, authtest.Spec{Type: auth.TypeUser, Tenant: tenantA, Subject: subject, Grants: authtest.OwnerGrants()})
 }
 
-func grantFor(subject string) service.Grant {
-	return service.Grant{ID: "g", ApprovalID: "a1", Kind: service.GrantKindPublish, Type: "vendor_approval", Realm: "vendor", Audience: "billing",
-		Requester: "u2", Approver: approver, SubjectHash: subject}
+// publishGrant signs a publish grant of the double's vendor realm for subject (requester u2, approver the bearer, approval a1),
+// after edit changed a claim to make a refusal.
+func publishGrant(g *double.Grants, subject string, edit func(*auth.GrantClaims)) string {
+	c := g.Claims("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66", approver, subject)
+	c.ApprovalID = "a1"
+	if edit != nil {
+		edit(&c)
+	}
+	return g.Mint(c)
 }
 
-// The grant is checked in the order of ADR-0014 A2.6 item 4, each refusal with its own code, and a good one publishes.
+// The grant is verified by go-auth under the vendor key (each refusal with its own code, claims in its order), the subject hash is
+// recomputed from the stored version, and a good one publishes.
 func TestPublicationNeedsAGrantForTheSubjectAndTheLeadTime(t *testing.T) {
 	f := newFixture(t)
-	grants := fakeGrants{}
+	grants := double.NewGrants(f.clk)
 	svc := service.New(f.store, service.Options{Clock: f.clk, Log: slog.New(slog.DiscardHandler), Grants: grants})
 	ctx := f.vendorCtx(approver)
 	for _, tn := range []string{tenantA, tenantB} {
@@ -78,46 +79,58 @@ func TestPublicationNeedsAGrantForTheSubjectAndTheLeadTime(t *testing.T) {
 	}
 	m := signed(t, f, svc, "2026-12-15")
 	subject := service.PublishSubjectHash(m.Id, *m.ContentHash, "2026-12-15")
-	mod := func(fn func(*service.Grant)) service.Grant { g := grantFor(subject); fn(&g); return g }
-	grants["good"] = grantFor(subject)
-	grants["wrong-aud"] = mod(func(g *service.Grant) { g.Audience = "tenancy" })
-	grants["wrong-type"] = mod(func(g *service.Grant) { g.Type = "access" })
-	grants["wrong-realm"] = mod(func(g *service.Grant) { g.Realm = "tenant" })
-	grants["wrong-kind"] = mod(func(g *service.Grant) { g.Kind = "org_suspend" })
-	grants["with-org"] = mod(func(g *service.Grant) { g.Org = tenantA })
-	grants["other-approver"] = mod(func(g *service.Grant) { g.Approver = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aff" })
-	grants["expired-and-wrong-kind"] = mod(func(g *service.Grant) { g.ExpiresAt, g.Kind = f.clk.Now().Add(-time.Minute), "org_suspend" })
-	grants["other-subject"] = mod(func(g *service.Grant) { g.SubjectHash = "deadbeef" })
-	grants["same-person"] = mod(func(g *service.Grant) { g.Requester = approver })
+	tok := func(edit func(*auth.GrantClaims)) string { return publishGrant(grants, subject, edit) }
+	now := f.clk.Now()
 
 	_, err := svc.PublishTaxRuleSet(ctx, m.Id, "")
-	wantCode(t, err, "grant.required")
-	for _, bad := range []string{"unknown", "wrong-aud", "wrong-type", "wrong-realm", "wrong-kind", "with-org", "other-approver"} {
-		_, err = svc.PublishTaxRuleSet(ctx, m.Id, bad)
-		if !hasCode(err, "grant.invalid") {
-			t.Fatalf("%s: %v, want grant.invalid", bad, err)
+	wantCode(t, err, auth.CodeGrantRequired)
+	invalid := map[string]string{
+		"garbage":        "not-a-grant",
+		"unknown kid":    grants.MintKid("other-key", grants.Claims("u2", approver, subject)),
+		"wrong-aud":      tok(func(c *auth.GrantClaims) { c.Audience = "tenancy" }),
+		"wrong-issuer":   tok(func(c *auth.GrantClaims) { c.Issuer = "https://evil.invalid" }),
+		"wrong-type":     tok(func(c *auth.GrantClaims) { c.Type = "access" }),
+		"wrong-realm":    tok(func(c *auth.GrantClaims) { c.Realm = auth.RealmTenant }),
+		"wrong-kind":     tok(func(c *auth.GrantClaims) { c.Kind = "org_suspend" }),
+		"with-org":       tok(func(c *auth.GrantClaims) { c.Org = tenantA }),
+		"other-approver": tok(func(c *auth.GrantClaims) { c.Approver = "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aff" }),
+		"same-person":    tok(func(c *auth.GrantClaims) { c.Requester = c.Approver }),
+		"too-long":       tok(func(c *auth.GrantClaims) { c.ExpiresAt = c.IssuedAt + 301 }),
+	}
+	for name, raw := range invalid {
+		_, err = svc.PublishTaxRuleSet(ctx, m.Id, raw)
+		if !hasCode(err, auth.CodeGrantInvalid) {
+			t.Fatalf("%s: %v, want %s", name, err, auth.CodeGrantInvalid)
 		}
 	}
-	// exp is checked before kind: an expired grant of the wrong kind says expired
-	_, err = svc.PublishTaxRuleSet(ctx, m.Id, "expired-and-wrong-kind")
-	wantCode(t, err, "grant.expired")
-	_, err = svc.PublishTaxRuleSet(ctx, m.Id, "other-subject")
-	wantCode(t, err, "grant.subject_mismatch")
-	_, err = svc.PublishTaxRuleSet(ctx, m.Id, "same-person")
-	wantCode(t, err, "grant.subject_mismatch")
+	// exp is checked before the subject: an expired grant says expired
+	_, err = svc.PublishTaxRuleSet(ctx, m.Id, tok(func(c *auth.GrantClaims) {
+		c.IssuedAt, c.ExpiresAt, c.SubjectHash = now.Add(-6*time.Minute).Unix(), now.Add(-time.Minute).Unix(), "deadbeef"
+	}))
+	wantCode(t, err, auth.CodeGrantExpired)
+	_, err = svc.PublishTaxRuleSet(ctx, m.Id, tok(func(c *auth.GrantClaims) { c.SubjectHash = "deadbeef" }))
+	wantCode(t, err, auth.CodeGrantSubjectMismatch)
 	// the bearer must be the approver
-	_, err = svc.PublishTaxRuleSet(f.vendorCtx("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aee"), m.Id, "good")
-	if !hasCode(err, "grant.invalid") {
+	good := tok(nil)
+	_, err = svc.PublishTaxRuleSet(f.vendorCtx("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aee"), m.Id, good)
+	if !hasCode(err, auth.CodeGrantInvalid) {
 		t.Fatalf("a bearer who is not the approver: %v", err)
 	}
 
-	pub, err := svc.PublishTaxRuleSet(ctx, m.Id, "good")
+	pub, err := svc.PublishTaxRuleSet(ctx, m.Id, good)
 	if err != nil || pub.State != gen.TaxRuleSetMasterStatePublished || *pub.OrganisationsTotal != 2 {
 		t.Fatalf("%+v %v", pub, err)
 	}
-	// a grant is single use: the version is now published, so the replay is refused by the guard before the grant is read
-	_, err = svc.PublishTaxRuleSet(ctx, m.Id, "good")
+	// the version is now published, so a replay is refused for its state; the grant is single use, so the same jti on another
+	// signed version is refused as used
+	_, err = svc.PublishTaxRuleSet(ctx, m.Id, good)
 	wantCode(t, err, "not_signed")
+	m2 := signed(t, f, svc, "2026-12-20")
+	var c2 auth.GrantClaims
+	c2 = grants.Claims("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a66", approver, service.PublishSubjectHash(m2.Id, *m2.ContentHash, "2026-12-20"))
+	c2.JTI = jtiOf(t, good)
+	_, err = svc.PublishTaxRuleSet(ctx, m2.Id, grants.Mint(c2))
+	wantCode(t, err, auth.CodeGrantUsed)
 	// a published version is never edited or deleted
 	if _, err := svc.UpdateTaxRuleSetDraft(ctx, m.Id, `"1"`, draft("2026-12-15")); err == nil {
 		t.Fatal("a published version was edited")
@@ -141,7 +154,7 @@ func TestPublicationNeedsAGrantForTheSubjectAndTheLeadTime(t *testing.T) {
 // later is queued the version in force or to come.
 func TestPublicationQueuesOneEmitPerOrganisation(t *testing.T) {
 	f := newFixture(t)
-	grants := fakeGrants{}
+	grants := double.NewGrants(f.clk)
 	svc := service.New(f.store, service.Options{Clock: f.clk, Log: slog.New(slog.DiscardHandler), Grants: grants})
 	ctx := f.vendorCtx(approver)
 	for _, tn := range []string{tenantA, tenantB} {
@@ -150,8 +163,7 @@ func TestPublicationQueuesOneEmitPerOrganisation(t *testing.T) {
 		}
 	}
 	m := signed(t, f, svc, "2026-12-15")
-	grants["good"] = grantFor(service.PublishSubjectHash(m.Id, *m.ContentHash, "2026-12-15"))
-	pub, err := svc.PublishTaxRuleSet(ctx, m.Id, "good")
+	pub, err := svc.PublishTaxRuleSet(ctx, m.Id, publishGrant(grants, service.PublishSubjectHash(m.Id, *m.ContentHash, "2026-12-15"), nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,11 +202,10 @@ func TestPublicationQueuesOneEmitPerOrganisation(t *testing.T) {
 
 func TestPublicationUnderTheLeadTimeIsRefused(t *testing.T) {
 	f := newFixture(t)
-	grants := fakeGrants{}
+	grants := double.NewGrants(f.clk)
 	svc := service.New(f.store, service.Options{Clock: f.clk, Log: slog.New(slog.DiscardHandler), Grants: grants})
 	m := signed(t, f, svc, "2026-11-24") // effective today: closer than 24 hours
-	grants["g"] = grantFor(service.PublishSubjectHash(m.Id, *m.ContentHash, "2026-11-24"))
-	_, err := svc.PublishTaxRuleSet(f.vendorCtx(approver), m.Id, "g")
+	_, err := svc.PublishTaxRuleSet(f.vendorCtx(approver), m.Id, publishGrant(grants, service.PublishSubjectHash(m.Id, *m.ContentHash, "2026-11-24"), nil))
 	wantCode(t, err, "effective_date_too_soon")
 	// the refusal used no grant, and the version stays signed
 	if got, _ := svc.GetTaxRuleSetMaster(f.sys(tenantA), m.Id); got.State != gen.TaxRuleSetMasterStateSigned {
@@ -220,6 +231,21 @@ func TestSigningRefusesAnInvalidDraft(t *testing.T) {
 	if _, err := svc.UpdateTaxRuleSetDraft(f.sys(tenantA), m.Id, `"9"`, draft("2026-12-20")); err == nil {
 		t.Fatal("a stale If-Match must be refused")
 	}
+}
+
+// jtiOf reads the jti claim of a compact grant (the signature was checked by the verifier).
+func jtiOf(t *testing.T, raw string) string {
+	t.Helper()
+	parts := strings.Split(raw, ".")
+	b, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c auth.GrantClaims
+	if err := json.Unmarshal(b, &c); err != nil {
+		t.Fatal(err)
+	}
+	return c.JTI
 }
 
 func hasCode(err error, code string) bool {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/hostryhq/go-auth"
 	"github.com/hostryhq/go-common/apperr"
 	"github.com/hostryhq/go-common/emit"
+	"github.com/hostryhq/go-common/idempotency"
 	gsync "github.com/hostryhq/go-common/sync"
 
 	"github.com/hostryhq/svc-billing/internal/gen"
@@ -312,10 +314,53 @@ func opID(r emit.Result) string {
 	return r.Origin + "/" + stream + "/" + itoa(int(r.Seq))
 }
 
+// replayed answers a retry of an edit whose body depends on stored state (an insert of the settings row while there is none, a
+// set after): the first answer of the Idempotency-Key is returned and nothing is emitted, so the op the gateway holds under
+// the derived key is never asked again with another body. found is false for a first request.
+func (s *Service) replayed(ctx context.Context) (out gen.ConfigChange, found bool, err error) {
+	im, ok := idemFrom(ctx)
+	if !ok {
+		return out, false, nil
+	}
+	err = s.repo.InTx(ctx, func(ctx context.Context, tx repository.Tx) error {
+		fp, stored, has, err := tx.IdemGet(ctx, im.Op, im.Key)
+		if err != nil || !has {
+			return err
+		}
+		if fp != im.Fingerprint {
+			return idempotency.ErrMismatch
+		}
+		found = true
+		return json.Unmarshal(stored, &out)
+	})
+	return out, found, err
+}
+
+// recordReplay stores the answer under the Idempotency-Key once the op was emitted. The op exists whatever happens here, so a
+// failure is logged, not returned.
+func (s *Service) recordReplay(ctx context.Context, ch gen.ConfigChange) {
+	im, ok := idemFrom(ctx)
+	if !ok {
+		return
+	}
+	b, err := json.Marshal(ch)
+	if err == nil {
+		err = s.repo.InTx(ctx, func(ctx context.Context, tx repository.Tx) error {
+			return tx.IdemPut(ctx, im.Op, im.Key, im.Fingerprint, b, s.clock.Now())
+		})
+	}
+	if err != nil {
+		s.log.Warn("idempotency record of an emitted edit failed", "op", im.Op, "error", err)
+	}
+}
+
 // SetDiscountLimit sets the cashier discount limit (strong session). It emits a billing_settings config op.
 func (s *Service) SetDiscountLimit(ctx context.Context, outlet string, bp int) (gen.ConfigChange, error) {
 	if err := s.requireOutlet(ctx, "bill.discount.limit.edit", outlet); err != nil {
 		return gen.ConfigChange{}, err
+	}
+	if ch, found, err := s.replayed(ctx); found || err != nil {
+		return ch, err
 	}
 	if bp < 0 || bp > 10000 {
 		return gen.ConfigChange{}, validation("validation", "invalid discount limit", field("discount_limit_bp", "out_of_range"))
@@ -323,10 +368,56 @@ func (s *Service) SetDiscountLimit(ctx context.Context, outlet string, bp int) (
 	if err := s.check(ctx, outlet); err != nil {
 		return gen.ConfigChange{}, err
 	}
-	// The intent lists only `set` for this entity (sync/intents/cloud.yaml settings.discount_limit.set): the row is the one
-	// the numbering or profile insert, or the device, created.
-	return s.emitConfig(ctx, outlet, "setDiscountLimit", "settings.discount_limit.set", "bill.discount.limit.edit",
-		[]Mut{{E: "billing_settings", ID: uuid5("billing_settings", outlet), K: gsync.KindSet, F: map[string]any{"discount_limit_bp": int64(bp)}}})
+	// An outlet whose row does not exist yet gets an insert of the row (every other field at its default, the limit as given);
+	// otherwise a set of discount_limit_bp only (sync/intents/cloud.yaml settings.discount_limit.set).
+	mut, err := s.settingsMut(ctx, outlet, map[string]any{"discount_limit_bp": int64(bp)})
+	if err != nil {
+		return gen.ConfigChange{}, err
+	}
+	ch, err := s.emitConfig(ctx, outlet, "setDiscountLimit", "settings.discount_limit.set", "bill.discount.limit.edit", []Mut{mut})
+	if err == nil {
+		s.recordReplay(ctx, ch)
+	}
+	return ch, err
+}
+
+// settingsDefaults are the fields of an inserted billing_settings row: the defaults of DefaultSettings and, for the fields
+// the API does not show, the entity's defaults (service charge applies to dine-in only, no packing charge taxed as
+// fnb_standard, day-close banner at 05:00 IST).
+func settingsDefaults() map[string]any {
+	d := DefaultSettings("")
+	return map[string]any{"number_at": string(d.NumberAt), "price_mode": string(d.PriceMode), "round_off": d.RoundOff, "service_charge_bp": int64(d.ServiceChargeBp),
+		"service_charge_dine_in": true, "service_charge_takeaway": false, "service_charge_counter": false, "packing_charge_paise": int64(0), "packing_tax_class": "fnb_standard",
+		"discount_limit_bp": int64(d.DiscountLimitBp), "rebill_allowance_per_shift": int64(d.RebillAllowancePerShift), "comp_allowance_paise": d.CompAllowance.AmountPaise,
+		"open_item_limit_paise": d.OpenItemLimit.AmountPaise, "manual_entry_max_days_back": int64(d.ManualEntryMaxDaysBack), "shift_required": d.ShiftRequired,
+		"handover_count": d.HandoverCount, "day_cutoff_minutes": int64(300)}
+}
+
+// settingsMut is the mutation that changes fields of the outlet's billing_settings row: a set when the row exists, else an
+// insert of the row with its defaults and these fields.
+func (s *Service) settingsMut(ctx context.Context, outlet string, fields map[string]any) (Mut, error) {
+	exists := false
+	if err := s.repo.InTx(ctx, func(ctx context.Context, tx repository.Tx) error {
+		_, err := tx.GetDoc(ctx, repository.KindSettings, outlet)
+		switch {
+		case err == nil:
+			exists = true
+		case !isNF(err):
+			return err
+		}
+		return nil
+	}); err != nil {
+		return Mut{}, err
+	}
+	id := uuid5("billing_settings", outlet)
+	if exists {
+		return Mut{E: "billing_settings", ID: id, K: gsync.KindSet, F: fields}, nil
+	}
+	f := settingsDefaults()
+	for k, v := range fields {
+		f[k] = v
+	}
+	return Mut{E: "billing_settings", ID: id, K: gsync.KindInsert, F: f}, nil
 }
 
 // SetNumberingMode chooses when a bill takes its number. It is refused while the outlet has an open check, which
@@ -369,6 +460,9 @@ func (s *Service) SetOutletTaxProfile(ctx context.Context, outlet, fy string, sp
 	if err := s.requireOutlet(ctx, "settings.gst_profile.edit", outlet); err != nil {
 		return gen.ConfigChange{}, err
 	}
+	if ch, found, err := s.replayed(ctx); found || err != nil {
+		return ch, err
+	}
 	if !fyPattern.MatchString(fy) {
 		return gen.ConfigChange{}, validation("validation", "invalid financial year", field("financial_year", "invalid"))
 	}
@@ -397,10 +491,21 @@ func (s *Service) SetOutletTaxProfile(ctx context.Context, outlet, fy string, sp
 	if fssai != nil {
 		f["fssai_number"] = *fssai
 	}
-	// price_mode has no intent that carries it with this edit (settings.tax_profile.set lists outlet_tax_profile only): it
-	// is accepted and validated, not emitted (docs/notes.md, spec problem).
-	return s.emitConfig(ctx, outlet, "setOutletTaxProfile", "settings.tax_profile.set", "settings.gst_profile.edit",
-		[]Mut{{E: "outlet_tax_profile", ID: uuid5("outlet_tax_profile", outlet+"|"+fy), K: gsync.KindInsert, F: f}})
+	// One op, one intent: the profile row and, when price_mode is sent, price_mode on the outlet's billing_settings row (a set,
+	// or an insert of the row with its defaults when it does not exist; no other settings field changes).
+	muts := []Mut{{E: "outlet_tax_profile", ID: uuid5("outlet_tax_profile", outlet+"|"+fy), K: gsync.KindInsert, F: f}}
+	if priceMode != nil {
+		m, err := s.settingsMut(ctx, outlet, map[string]any{"price_mode": *priceMode})
+		if err != nil {
+			return gen.ConfigChange{}, err
+		}
+		muts = append(muts, m)
+	}
+	ch, err := s.emitConfig(ctx, outlet, "setOutletTaxProfile", "settings.tax_profile.set", "settings.gst_profile.edit", muts)
+	if err == nil {
+		s.recordReplay(ctx, ch)
+	}
+	return ch, err
 }
 
 func fyStart(fy string) (time.Time, bool) {

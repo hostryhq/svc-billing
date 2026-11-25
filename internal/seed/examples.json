@@ -218,7 +218,7 @@
   }
  },
  "getBillingProjectionDigest": {
-  "world": "base",
+  "world": "digest-day",
   "response": {
    "algorithm": "sha256-canon-v1",
    "business_date": "2026-11-24",
@@ -226,12 +226,17 @@
    "entities": [
     {
      "entity": "bill",
-     "hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+     "hash": "bf395d74aae34b4d748b945cf0fe4c8b6266afbbb0d6b6da3f6dc94e95bd3c4e",
+     "row_count": 1
+    },
+    {
+     "entity": "payment",
+     "hash": "83b76619863814c9bdaea86d267e6f736a7d43df470477b9dbeca54047da5885",
      "row_count": 1
     }
    ],
    "outlet_id": "0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a61",
-   "state_hash": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+   "state_hash": "43f2a702dcf3df58a3cee4a98592984c64e6c8a0639ae20735a7f0689e9ecdd6"
   }
  },
  "getBusinessDay": {
