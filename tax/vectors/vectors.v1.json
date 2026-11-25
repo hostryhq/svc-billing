@@ -1,0 +1,5445 @@
+{
+ "calc_v": 1,
+ "format": 1,
+ "description": "Golden vectors for tax calculation calc_v 1 (tax/README.md). Every implementation (client-core/tax in TypeScript, svc-billing in Go) must reproduce every expected value to the paisa. Amounts are paise, quantities thousandths, rates basis points. A case with ca_confirm true encodes a rule that needs CA confirmation (see note); the vector pins the provisional behaviour so a change is deliberate.",
+ "cases": [
+  {
+   "id": "TV-001",
+   "title": "Single 5% line, exclusive",
+   "note": "CGST = SGST = round half up of taxable x 250 / 10000.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 250,
+      "sgst_paise": 250
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 10000,
+    "cgst_paise": 250,
+    "sgst_paise": 250,
+    "pre_round_total_paise": 10500,
+    "round_off_paise": 0,
+    "total_paise": 10500
+   }
+  },
+  {
+   "id": "TV-002",
+   "title": "Half-paisa CGST rounds half up (937.5 to 938)",
+   "note": "Each component rounded separately, half up.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 3000,
+      "unit_price_paise": 12500,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 37500,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 37500
+     }
+    ],
+    "gross_paise": 37500,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 37500,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 37500,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 37500,
+      "cgst_paise": 938,
+      "sgst_paise": 938
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 37500,
+    "cgst_paise": 938,
+    "sgst_paise": 938,
+    "pre_round_total_paise": 39376,
+    "round_off_paise": 0,
+    "total_paise": 39376
+   }
+  },
+  {
+   "id": "TV-003",
+   "title": "CGST fraction .25 rounds down",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1010,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 1010,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 1010
+     }
+    ],
+    "gross_paise": 1010,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 1010,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 1010,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 1010,
+      "cgst_paise": 25,
+      "sgst_paise": 25
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 1010,
+    "cgst_paise": 25,
+    "sgst_paise": 25,
+    "pre_round_total_paise": 1060,
+    "round_off_paise": 0,
+    "total_paise": 1060
+   }
+  },
+  {
+   "id": "TV-004",
+   "title": "CGST fraction .75 rounds up",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1030,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 1030,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 1030
+     }
+    ],
+    "gross_paise": 1030,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 1030,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 1030,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 1030,
+      "cgst_paise": 26,
+      "sgst_paise": 26
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 1030,
+    "cgst_paise": 26,
+    "sgst_paise": 26,
+    "pre_round_total_paise": 1082,
+    "round_off_paise": 0,
+    "total_paise": 1082
+   }
+  },
+  {
+   "id": "TV-005",
+   "title": "CGST fraction exactly .5 rounds up",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1020,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 1020,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 1020
+     }
+    ],
+    "gross_paise": 1020,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 1020,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 1020,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 1020,
+      "cgst_paise": 26,
+      "sgst_paise": 26
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 1020,
+    "cgst_paise": 26,
+    "sgst_paise": 26,
+    "pre_round_total_paise": 1072,
+    "round_off_paise": 0,
+    "total_paise": 1072
+   }
+  },
+  {
+   "id": "TV-006",
+   "title": "18 percent rate (specified premises rule set)",
+   "note": "The rate comes from the rule set row selected by the premises flag, never from code.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 900,
+      "sgst_bp": 900
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 1800,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 900,
+      "sgst_paise": 900
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 10000,
+    "cgst_paise": 900,
+    "sgst_paise": 900,
+    "pre_round_total_paise": 11800,
+    "round_off_paise": 0,
+    "total_paise": 11800
+   }
+  },
+  {
+   "id": "TV-007",
+   "title": "Tax per group, not per line (three lines of 333)",
+   "note": "Per line the tax would be 8 + 8 + 8 per component; per group it is 25. RM-B4.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "c",
+      "qty_milli": 1000,
+      "unit_price_paise": 333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 333,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 333
+     },
+     {
+      "id": "b",
+      "value_paise": 333,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 333
+     },
+     {
+      "id": "c",
+      "value_paise": 333,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 333
+     }
+    ],
+    "gross_paise": 999,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 999,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 999,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 999,
+      "cgst_paise": 25,
+      "sgst_paise": 25
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 999,
+    "cgst_paise": 25,
+    "sgst_paise": 25,
+    "pre_round_total_paise": 1049,
+    "round_off_paise": 0,
+    "total_paise": 1049
+   }
+  },
+  {
+   "id": "TV-008",
+   "title": "Standard and non-GST items",
+   "note": "Non-GST lines carry no tax and are shown apart. CA to confirm liquor treatment in Tamil Nadu and Kerala.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 20000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_non_gst"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 20000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 20000
+     },
+     {
+      "id": "b",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 30000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 20000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 20000,
+      "cgst_paise": 500,
+      "sgst_paise": 500
+     }
+    ],
+    "non_gst_subtotal_paise": 10000,
+    "taxable_paise": 20000,
+    "cgst_paise": 500,
+    "sgst_paise": 500,
+    "pre_round_total_paise": 31000,
+    "round_off_paise": 0,
+    "total_paise": 31000
+   }
+  },
+  {
+   "id": "TV-009",
+   "title": "Exempt class shows a zero-tax group",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 5000,
+      "modifier_delta_paise": 0,
+      "tax_class": "exempt"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 5000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 5000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 5000
+     },
+     {
+      "id": "b",
+      "value_paise": 5000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 5000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "exempt",
+      "gst_applies": true,
+      "rate_bp": 0,
+      "value_paise": 5000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 5000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 5000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 5000,
+      "cgst_paise": 125,
+      "sgst_paise": 125
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 10000,
+    "cgst_paise": 125,
+    "sgst_paise": 125,
+    "pre_round_total_paise": 10250,
+    "round_off_paise": 0,
+    "total_paise": 10250
+   }
+  },
+  {
+   "id": "TV-010",
+   "title": "Three groups in one bill",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 7777,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 3333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_non_gst"
+     },
+     {
+      "id": "c",
+      "qty_milli": 1000,
+      "unit_price_paise": 1999,
+      "modifier_delta_paise": 0,
+      "tax_class": "exempt"
+     },
+     {
+      "id": "d",
+      "qty_milli": 1000,
+      "unit_price_paise": 4321,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 7777,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 7777
+     },
+     {
+      "id": "b",
+      "value_paise": 3333,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 3333
+     },
+     {
+      "id": "c",
+      "value_paise": 1999,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 1999
+     },
+     {
+      "id": "d",
+      "value_paise": 4321,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 4321
+     }
+    ],
+    "gross_paise": 17430,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 17430,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "exempt",
+      "gst_applies": true,
+      "rate_bp": 0,
+      "value_paise": 1999,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 1999,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 3333,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 3333,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 12098,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 12098,
+      "cgst_paise": 302,
+      "sgst_paise": 302
+     }
+    ],
+    "non_gst_subtotal_paise": 3333,
+    "taxable_paise": 14097,
+    "cgst_paise": 302,
+    "sgst_paise": 302,
+    "pre_round_total_paise": 18034,
+    "round_off_paise": 0,
+    "total_paise": 18034
+   }
+  },
+  {
+   "id": "TV-011",
+   "title": "Fractional quantity (1.5 units)",
+   "note": "Weighed goods: quantities are thousandths.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1500,
+      "unit_price_paise": 8000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 12000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 12000
+     }
+    ],
+    "gross_paise": 12000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 12000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 12000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 12000,
+      "cgst_paise": 300,
+      "sgst_paise": 300
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 12000,
+    "cgst_paise": 300,
+    "sgst_paise": 300,
+    "pre_round_total_paise": 12600,
+    "round_off_paise": 0,
+    "total_paise": 12600
+   }
+  },
+  {
+   "id": "TV-012",
+   "title": "Line value rounds half up (1.250 x 333)",
+   "note": "416.25 rounds to 416.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1250,
+      "unit_price_paise": 333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 416,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 416
+     }
+    ],
+    "gross_paise": 416,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 416,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 416,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 416,
+      "cgst_paise": 10,
+      "sgst_paise": 10
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 416,
+    "cgst_paise": 10,
+    "sgst_paise": 10,
+    "pre_round_total_paise": 436,
+    "round_off_paise": 0,
+    "total_paise": 436
+   }
+  },
+  {
+   "id": "TV-013",
+   "title": "Line value rounds half up (1.500 x 333)",
+   "note": "499.5 rounds to 500.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1500,
+      "unit_price_paise": 333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 500,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 500
+     }
+    ],
+    "gross_paise": 500,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 500,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 500,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 500,
+      "cgst_paise": 13,
+      "sgst_paise": 13
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 500,
+    "cgst_paise": 13,
+    "sgst_paise": 13,
+    "pre_round_total_paise": 526,
+    "round_off_paise": 0,
+    "total_paise": 526
+   }
+  },
+  {
+   "id": "TV-014",
+   "title": "Modifier delta added to the unit price",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 2000,
+      "unit_price_paise": 8000,
+      "modifier_delta_paise": 2000,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 20000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 20000
+     }
+    ],
+    "gross_paise": 20000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 20000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 20000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 20000,
+      "cgst_paise": 500,
+      "sgst_paise": 500
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 20000,
+    "cgst_paise": 500,
+    "sgst_paise": 500,
+    "pre_round_total_paise": 21000,
+    "round_off_paise": 0,
+    "total_paise": 21000
+   }
+  },
+  {
+   "id": "TV-015",
+   "title": "Negative modifier delta clamps the unit at zero",
+   "note": "The line total never goes below zero (RM-M3).",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1000,
+      "modifier_delta_paise": -1500,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 5000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 0,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 0
+     },
+     {
+      "id": "b",
+      "value_paise": 5000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 5000
+     }
+    ],
+    "gross_paise": 5000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 5000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 5000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 5000,
+      "cgst_paise": 125,
+      "sgst_paise": 125
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 5000,
+    "cgst_paise": 125,
+    "sgst_paise": 125,
+    "pre_round_total_paise": 5250,
+    "round_off_paise": 0,
+    "total_paise": 5250
+   }
+  },
+  {
+   "id": "TV-016",
+   "title": "Zero-total bill",
+   "note": "A zero-total bill carries no tax.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 0,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 0,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 0
+     }
+    ],
+    "gross_paise": 0,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 0,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 0,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 0,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 0,
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "pre_round_total_paise": 0,
+    "round_off_paise": 0,
+    "total_paise": 0
+   }
+  },
+  {
+   "id": "TV-017",
+   "title": "Line discount 10 percent",
+   "note": "Discounts apply before tax.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "discount": {
+       "kind": "percent",
+       "value": 1000
+      }
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 1000,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 9000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 1000,
+    "bill_discount_paise": 0,
+    "net_paise": 9000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9000,
+      "cgst_paise": 225,
+      "sgst_paise": 225
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9000,
+    "cgst_paise": 225,
+    "sgst_paise": 225,
+    "pre_round_total_paise": 9450,
+    "round_off_paise": 0,
+    "total_paise": 9450
+   }
+  },
+  {
+   "id": "TV-018",
+   "title": "Line percent discount rounds half up (100.5 to 101)",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1005,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "discount": {
+       "kind": "percent",
+       "value": 1000
+      }
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 1005,
+      "line_discount_paise": 101,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 904
+     }
+    ],
+    "gross_paise": 1005,
+    "line_discount_paise": 101,
+    "bill_discount_paise": 0,
+    "net_paise": 904,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 904,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 904,
+      "cgst_paise": 23,
+      "sgst_paise": 23
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 904,
+    "cgst_paise": 23,
+    "sgst_paise": 23,
+    "pre_round_total_paise": 950,
+    "round_off_paise": 0,
+    "total_paise": 950
+   }
+  },
+  {
+   "id": "TV-019",
+   "title": "Line amount discount",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "discount": {
+       "kind": "amount",
+       "value": 2500
+      }
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 2500,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 7500
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 2500,
+    "bill_discount_paise": 0,
+    "net_paise": 7500,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 7500,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 7500,
+      "cgst_paise": 188,
+      "sgst_paise": 188
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 7500,
+    "cgst_paise": 188,
+    "sgst_paise": 188,
+    "pre_round_total_paise": 7876,
+    "round_off_paise": 0,
+    "total_paise": 7876
+   }
+  },
+  {
+   "id": "TV-020",
+   "title": "Line discount larger than the line is refused",
+   "note": "RM-B8.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "discount": {
+       "kind": "amount",
+       "value": 1001
+      }
+     }
+    ]
+   },
+   "expected_error": "discount_exceeds_value"
+  },
+  {
+   "id": "TV-021",
+   "title": "Bill discount 10 percent allocated by largest remainder",
+   "note": "Allocation sums exactly to the discount (RM-B2).",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 5000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "c",
+      "qty_milli": 1000,
+      "unit_price_paise": 3333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 1000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 1000,
+      "net_paise": 9000
+     },
+     {
+      "id": "b",
+      "value_paise": 5000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 500,
+      "net_paise": 4500
+     },
+     {
+      "id": "c",
+      "value_paise": 3333,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 333,
+      "net_paise": 3000
+     }
+    ],
+    "gross_paise": 18333,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 1833,
+    "net_paise": 16500,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 16500,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 16500,
+      "cgst_paise": 413,
+      "sgst_paise": 413
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 16500,
+    "cgst_paise": 413,
+    "sgst_paise": 413,
+    "pre_round_total_paise": 17326,
+    "round_off_paise": 0,
+    "total_paise": 17326
+   }
+  },
+  {
+   "id": "TV-022",
+   "title": "Bill amount discount with remainder to the largest fraction",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 3333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 3333,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "c",
+      "qty_milli": 1000,
+      "unit_price_paise": 3334,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "amount",
+     "value": 1000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 3333,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 333,
+      "net_paise": 3000
+     },
+     {
+      "id": "b",
+      "value_paise": 3333,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 333,
+      "net_paise": 3000
+     },
+     {
+      "id": "c",
+      "value_paise": 3334,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 334,
+      "net_paise": 3000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 1000,
+    "net_paise": 9000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9000,
+      "cgst_paise": 225,
+      "sgst_paise": 225
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9000,
+    "cgst_paise": 225,
+    "sgst_paise": 225,
+    "pre_round_total_paise": 9450,
+    "round_off_paise": 0,
+    "total_paise": 9450
+   }
+  },
+  {
+   "id": "TV-023",
+   "title": "Remainder ties go to the earlier line",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 100,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 100,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "c",
+      "qty_milli": 1000,
+      "unit_price_paise": 100,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "amount",
+     "value": 100
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 100,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 34,
+      "net_paise": 66
+     },
+     {
+      "id": "b",
+      "value_paise": 100,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 33,
+      "net_paise": 67
+     },
+     {
+      "id": "c",
+      "value_paise": 100,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 33,
+      "net_paise": 67
+     }
+    ],
+    "gross_paise": 300,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 100,
+    "net_paise": 200,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 200,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 200,
+      "cgst_paise": 5,
+      "sgst_paise": 5
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 200,
+    "cgst_paise": 5,
+    "sgst_paise": 5,
+    "pre_round_total_paise": 210,
+    "round_off_paise": 0,
+    "total_paise": 210
+   }
+  },
+  {
+   "id": "TV-024",
+   "title": "Bill discount larger than the net is refused",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "amount",
+     "value": 1001
+    }
+   },
+   "expected_error": "discount_exceeds_value"
+  },
+  {
+   "id": "TV-025",
+   "title": "100 percent bill discount leaves zero tax",
+   "note": "RM-D3: treated as a comp of every line.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 2000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_non_gst"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 10000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 10000,
+      "net_paise": 0
+     },
+     {
+      "id": "b",
+      "value_paise": 2000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 2000,
+      "net_paise": 0
+     }
+    ],
+    "gross_paise": 12000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 12000,
+    "net_paise": 0,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 0,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 0,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 0,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 0,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 0,
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "pre_round_total_paise": 0,
+    "round_off_paise": 0,
+    "total_paise": 0
+   }
+  },
+  {
+   "id": "TV-026",
+   "title": "Line discount and bill discount together",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "discount": {
+       "kind": "percent",
+       "value": 500
+      }
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 6000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 1000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 500,
+      "bill_discount_alloc_paise": 950,
+      "net_paise": 8550
+     },
+     {
+      "id": "b",
+      "value_paise": 6000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 600,
+      "net_paise": 5400
+     }
+    ],
+    "gross_paise": 16000,
+    "line_discount_paise": 500,
+    "bill_discount_paise": 1550,
+    "net_paise": 13950,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 13950,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 13950,
+      "cgst_paise": 349,
+      "sgst_paise": 349
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 13950,
+    "cgst_paise": 349,
+    "sgst_paise": 349,
+    "pre_round_total_paise": 14648,
+    "round_off_paise": 0,
+    "total_paise": 14648
+   }
+  },
+  {
+   "id": "TV-027",
+   "title": "Complimentary line among paid lines",
+   "note": "A comp line prints at zero, keeps its list value and carries no tax. CA to confirm GST on free supplies.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 15000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "comp": true
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 15000,
+      "line_discount_paise": 15000,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 0
+     },
+     {
+      "id": "b",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 25000,
+    "line_discount_paise": 15000,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 250,
+      "sgst_paise": 250
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 10000,
+    "cgst_paise": 250,
+    "sgst_paise": 250,
+    "pre_round_total_paise": 10500,
+    "round_off_paise": 0,
+    "total_paise": 10500
+   }
+  },
+  {
+   "id": "TV-028",
+   "title": "Bill of complimentary lines only",
+   "note": "CA to confirm whether a fully complimentary bill takes a number (founder default R2-Q22: close as internal; Settle zero invoice numbers it).",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 15000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "comp": true
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 500,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard",
+      "comp": true
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 15000,
+      "line_discount_paise": 15000,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 0
+     },
+     {
+      "id": "b",
+      "value_paise": 500,
+      "line_discount_paise": 500,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 0
+     }
+    ],
+    "gross_paise": 15500,
+    "line_discount_paise": 15500,
+    "bill_discount_paise": 0,
+    "net_paise": 0,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 0,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 0,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 0,
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "pre_round_total_paise": 0,
+    "round_off_paise": 0,
+    "total_paise": 0
+   }
+  },
+  {
+   "id": "TV-029",
+   "title": "Service charge 10 percent on one group",
+   "note": "Charge on the discounted total, taxed at its group rate. CA to confirm tax on service charge.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "service_charge_bp": 1000
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 1000,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 11000,
+      "charge_alloc_paise": 1000,
+      "taxable_paise": 11000,
+      "cgst_paise": 275,
+      "sgst_paise": 275
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 11000,
+    "cgst_paise": 275,
+    "sgst_paise": 275,
+    "pre_round_total_paise": 11550,
+    "round_off_paise": 0,
+    "total_paise": 11550
+   }
+  },
+  {
+   "id": "TV-030",
+   "title": "Service charge across a standard and a non-GST group",
+   "note": "Allocated pro rata by group value; the non-GST share is untaxed. CA to confirm.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 5000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_non_gst"
+     }
+    ],
+    "service_charge_bp": 1000
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     },
+     {
+      "id": "b",
+      "value_paise": 5000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 5000
+     }
+    ],
+    "gross_paise": 15000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 15000,
+    "service_charge_paise": 1500,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 5500,
+      "charge_alloc_paise": 500,
+      "taxable_paise": 5500,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 11000,
+      "charge_alloc_paise": 1000,
+      "taxable_paise": 11000,
+      "cgst_paise": 275,
+      "sgst_paise": 275
+     }
+    ],
+    "non_gst_subtotal_paise": 5500,
+    "taxable_paise": 11000,
+    "cgst_paise": 275,
+    "sgst_paise": 275,
+    "pre_round_total_paise": 17050,
+    "round_off_paise": 0,
+    "total_paise": 17050
+   }
+  },
+  {
+   "id": "TV-031",
+   "title": "Service charge on the discounted total",
+   "note": "Order: discount, then service charge on the result, then tax. CA to confirm tax on service charge.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 2000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 1000
+    },
+    "service_charge_bp": 500
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 1000,
+      "net_paise": 9000
+     },
+     {
+      "id": "b",
+      "value_paise": 2000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 200,
+      "net_paise": 1800
+     }
+    ],
+    "gross_paise": 12000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 1200,
+    "net_paise": 10800,
+    "service_charge_paise": 540,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 11340,
+      "charge_alloc_paise": 540,
+      "taxable_paise": 11340,
+      "cgst_paise": 284,
+      "sgst_paise": 284
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 11340,
+    "cgst_paise": 284,
+    "sgst_paise": 284,
+    "pre_round_total_paise": 11908,
+    "round_off_paise": 0,
+    "total_paise": 11908
+   }
+  },
+  {
+   "id": "TV-032",
+   "title": "Service charge remainder across three groups",
+   "note": "Largest remainder across groups; ties by tax class order. CA to confirm tax on service charge.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 3001,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 3001,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_non_gst"
+     },
+     {
+      "id": "c",
+      "qty_milli": 1000,
+      "unit_price_paise": 3001,
+      "modifier_delta_paise": 0,
+      "tax_class": "exempt"
+     }
+    ],
+    "service_charge_bp": 777
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 3001,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 3001
+     },
+     {
+      "id": "b",
+      "value_paise": 3001,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 3001
+     },
+     {
+      "id": "c",
+      "value_paise": 3001,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 3001
+     }
+    ],
+    "gross_paise": 9003,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 9003,
+    "service_charge_paise": 700,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "exempt",
+      "gst_applies": true,
+      "rate_bp": 0,
+      "value_paise": 3235,
+      "charge_alloc_paise": 234,
+      "taxable_paise": 3235,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 3234,
+      "charge_alloc_paise": 233,
+      "taxable_paise": 3234,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 3234,
+      "charge_alloc_paise": 233,
+      "taxable_paise": 3234,
+      "cgst_paise": 81,
+      "sgst_paise": 81
+     }
+    ],
+    "non_gst_subtotal_paise": 3234,
+    "taxable_paise": 6469,
+    "cgst_paise": 81,
+    "sgst_paise": 81,
+    "pre_round_total_paise": 9865,
+    "round_off_paise": 0,
+    "total_paise": 9865
+   }
+  },
+  {
+   "id": "TV-033",
+   "title": "Packing charge in its own tax class",
+   "note": "Packing taxed at the class chosen for it (default fnb_standard); ADR-0014 leaves the allocation rule for packing open, so this is provisional. CA to confirm.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "packing": {
+     "amount_paise": 3000,
+     "tax_class": "fnb_standard"
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 0,
+    "packing_paise": 3000,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 13000,
+      "charge_alloc_paise": 3000,
+      "taxable_paise": 13000,
+      "cgst_paise": 325,
+      "sgst_paise": 325
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 13000,
+    "cgst_paise": 325,
+    "sgst_paise": 325,
+    "pre_round_total_paise": 13650,
+    "round_off_paise": 0,
+    "total_paise": 13650
+   }
+  },
+  {
+   "id": "TV-034",
+   "title": "Inclusive 10500 at 5 percent",
+   "note": "RM-B5: taxable = gross x 10000 / (10000 + rate).",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10500,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10500,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10500
+     }
+    ],
+    "gross_paise": 10500,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10500,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10500,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 250,
+      "sgst_paise": 250
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 10000,
+    "cgst_paise": 250,
+    "sgst_paise": 250,
+    "pre_round_total_paise": 10500,
+    "round_off_paise": 0,
+    "total_paise": 10500
+   }
+  },
+  {
+   "id": "TV-035",
+   "title": "Inclusive 11800 at 18 percent",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 900,
+      "sgst_bp": 900
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 11800,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 11800,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 11800
+     }
+    ],
+    "gross_paise": 11800,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 11800,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 1800,
+      "value_paise": 11800,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 900,
+      "sgst_paise": 900
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 10000,
+    "cgst_paise": 900,
+    "sgst_paise": 900,
+    "pre_round_total_paise": 11800,
+    "round_off_paise": 0,
+    "total_paise": 11800
+   }
+  },
+  {
+   "id": "TV-036",
+   "title": "Inclusive: taxable plus tax differs from the gross by a paisa",
+   "note": "The difference goes to the round-off line; the guest pays the menu price. CA to confirm.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 5009,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 5009,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 5009
+     }
+    ],
+    "gross_paise": 5009,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 5009,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 5009,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 4770,
+      "cgst_paise": 119,
+      "sgst_paise": 119
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 4770,
+    "cgst_paise": 119,
+    "sgst_paise": 119,
+    "pre_round_total_paise": 5009,
+    "round_off_paise": 1,
+    "total_paise": 5009
+   }
+  },
+  {
+   "id": "TV-037",
+   "title": "Inclusive: another paisa difference",
+   "note": "CA to confirm.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 5010,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 5011,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 5010,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 5010
+     },
+     {
+      "id": "b",
+      "value_paise": 5011,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 5011
+     }
+    ],
+    "gross_paise": 10021,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10021,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10021,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9544,
+      "cgst_paise": 239,
+      "sgst_paise": 239
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9544,
+    "cgst_paise": 239,
+    "sgst_paise": 239,
+    "pre_round_total_paise": 10021,
+    "round_off_paise": -1,
+    "total_paise": 10021
+   }
+  },
+  {
+   "id": "TV-038",
+   "title": "Inclusive with rupee round-off",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10050,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10050,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10050
+     }
+    ],
+    "gross_paise": 10050,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10050,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10050,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9571,
+      "cgst_paise": 239,
+      "sgst_paise": 239
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9571,
+    "cgst_paise": 239,
+    "sgst_paise": 239,
+    "pre_round_total_paise": 10050,
+    "round_off_paise": 51,
+    "total_paise": 10100
+   }
+  },
+  {
+   "id": "TV-039",
+   "title": "Inclusive with discount, service charge and a non-GST line",
+   "note": "CA to confirm.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 21000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 4000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_non_gst"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 500
+    },
+    "service_charge_bp": 1000
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 21000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 1050,
+      "net_paise": 19950
+     },
+     {
+      "id": "b",
+      "value_paise": 4000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 200,
+      "net_paise": 3800
+     }
+    ],
+    "gross_paise": 25000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 1250,
+    "net_paise": 23750,
+    "service_charge_paise": 2375,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 4180,
+      "charge_alloc_paise": 380,
+      "taxable_paise": 4180,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 21945,
+      "charge_alloc_paise": 1995,
+      "taxable_paise": 20900,
+      "cgst_paise": 523,
+      "sgst_paise": 523
+     }
+    ],
+    "non_gst_subtotal_paise": 4180,
+    "taxable_paise": 20900,
+    "cgst_paise": 523,
+    "sgst_paise": 523,
+    "pre_round_total_paise": 26125,
+    "round_off_paise": -26,
+    "total_paise": 26100
+   }
+  },
+  {
+   "id": "TV-040",
+   "title": "Round-off down (pre-round 10449)",
+   "note": "Rounded half up to the nearest rupee as a separate signed line; never part of the tax base. CA to confirm.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 9951,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 9951,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 9951
+     }
+    ],
+    "gross_paise": 9951,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 9951,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9951,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9951,
+      "cgst_paise": 249,
+      "sgst_paise": 249
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9951,
+    "cgst_paise": 249,
+    "sgst_paise": 249,
+    "pre_round_total_paise": 10449,
+    "round_off_paise": -49,
+    "total_paise": 10400
+   }
+  },
+  {
+   "id": "TV-041",
+   "title": "Round-off at exactly 50 paise rounds up",
+   "note": "CA to confirm.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 9953,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 9953,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 9953
+     }
+    ],
+    "gross_paise": 9953,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 9953,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9953,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9953,
+      "cgst_paise": 249,
+      "sgst_paise": 249
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9953,
+    "cgst_paise": 249,
+    "sgst_paise": 249,
+    "pre_round_total_paise": 10451,
+    "round_off_paise": 49,
+    "total_paise": 10500
+   }
+  },
+  {
+   "id": "TV-042",
+   "title": "Round-off switched off keeps the paise",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 9951,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 9951,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 9951
+     }
+    ],
+    "gross_paise": 9951,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 9951,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9951,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9951,
+      "cgst_paise": 249,
+      "sgst_paise": 249
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9951,
+    "cgst_paise": 249,
+    "sgst_paise": 249,
+    "pre_round_total_paise": 10449,
+    "round_off_paise": 0,
+    "total_paise": 10449
+   }
+  },
+  {
+   "id": "TV-043",
+   "title": "Composition regime: no tax",
+   "note": "Bill of supply, tax zero and not shown (RM-T5). CA to confirm what a composition dealer issues.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "composition",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 2345,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     },
+     {
+      "id": "b",
+      "value_paise": 2345,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 2345
+     }
+    ],
+    "gross_paise": 12345,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 12345,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 12345,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 12345,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     }
+    ],
+    "non_gst_subtotal_paise": 12345,
+    "taxable_paise": 0,
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "pre_round_total_paise": 12345,
+    "round_off_paise": -45,
+    "total_paise": 12300
+   }
+  },
+  {
+   "id": "TV-044",
+   "title": "Unregistered regime: no tax",
+   "note": "Plain bill (RM-T5).",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "unregistered",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     }
+    ],
+    "non_gst_subtotal_paise": 10000,
+    "taxable_paise": 0,
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "pre_round_total_paise": 10000,
+    "round_off_paise": 0,
+    "total_paise": 10000
+   }
+  },
+  {
+   "id": "TV-045",
+   "title": "ECO (aggregator) channel rule",
+   "note": "The rule row for channel eco may carry no GST (Section 9(5) is reported by the aggregator). Document form and rate are CA-pending; the vector only proves the engine follows the rule row.",
+   "ca_confirm": true,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 10000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     }
+    ],
+    "non_gst_subtotal_paise": 10000,
+    "taxable_paise": 0,
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "pre_round_total_paise": 10000,
+    "round_off_paise": 0,
+    "total_paise": 10000
+   }
+  },
+  {
+   "id": "TV-046",
+   "title": "Large amounts stay exact",
+   "note": "100 units at Rs 99,999.99.",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 100000,
+      "unit_price_paise": 9999999,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 999999900,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 999999900
+     }
+    ],
+    "gross_paise": 999999900,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 999999900,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 999999900,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 999999900,
+      "cgst_paise": 24999998,
+      "sgst_paise": 24999998
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 999999900,
+    "cgst_paise": 24999998,
+    "sgst_paise": 24999998,
+    "pre_round_total_paise": 1049999896,
+    "round_off_paise": 4,
+    "total_paise": 1049999900
+   }
+  },
+  {
+   "id": "TV-047",
+   "title": "Bill percent discount rounds half up",
+   "ca_confirm": false,
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 1005,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 1000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 1005,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 101,
+      "net_paise": 904
+     }
+    ],
+    "gross_paise": 1005,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 101,
+    "net_paise": 904,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 904,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 904,
+      "cgst_paise": 23,
+      "sgst_paise": 23
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 904,
+    "cgst_paise": 23,
+    "sgst_paise": 23,
+    "pre_round_total_paise": 950,
+    "round_off_paise": 0,
+    "total_paise": 950
+   }
+  },
+  {
+   "id": "TV-055",
+   "title": "Spec AC 15: R1, 3 dosa and 2 coffee",
+   "ca_confirm": false,
+   "spec_expect": {
+    "ref": "AC 15",
+    "taxable_paise": 30000,
+    "cgst_paise": 750,
+    "sgst_paise": 750,
+    "round_off_paise": 0,
+    "total_paise": 31500
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "dosa",
+      "qty_milli": 3000,
+      "unit_price_paise": 8000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "coffee",
+      "qty_milli": 2000,
+      "unit_price_paise": 3000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "dosa",
+      "value_paise": 24000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 24000
+     },
+     {
+      "id": "coffee",
+      "value_paise": 6000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 6000
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 30000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 30000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 30000,
+      "cgst_paise": 750,
+      "sgst_paise": 750
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 30000,
+    "cgst_paise": 750,
+    "sgst_paise": 750,
+    "pre_round_total_paise": 31500,
+    "round_off_paise": 0,
+    "total_paise": 31500
+   }
+  },
+  {
+   "id": "TV-056",
+   "title": "Spec AC 16: R2, 247.5 rounds half up",
+   "ca_confirm": false,
+   "spec_expect": {
+    "ref": "AC 16",
+    "taxable_paise": 9900,
+    "cgst_paise": 248,
+    "sgst_paise": 248,
+    "pre_round_total_paise": 10396,
+    "round_off_paise": 4,
+    "total_paise": 10400
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "meal",
+      "qty_milli": 1000,
+      "unit_price_paise": 9900,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "meal",
+      "value_paise": 9900,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 9900
+     }
+    ],
+    "gross_paise": 9900,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 9900,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9900,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9900,
+      "cgst_paise": 248,
+      "sgst_paise": 248
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9900,
+    "cgst_paise": 248,
+    "sgst_paise": 248,
+    "pre_round_total_paise": 10396,
+    "round_off_paise": 4,
+    "total_paise": 10400
+   }
+  },
+  {
+   "id": "TV-057",
+   "title": "Spec AC 17: R1 with a 10 percent bill discount",
+   "note": "The spec states total 28350, which is the pre-round total; with round-off on (the reference bills) 28350 rounds half up to 28400. Spec AC 17 to be corrected. CA to confirm the round-off rule.",
+   "ca_confirm": true,
+   "spec_expect": {
+    "ref": "AC 17",
+    "bill_discount_paise": 3000,
+    "taxable_paise": 27000,
+    "cgst_paise": 675,
+    "sgst_paise": 675,
+    "pre_round_total_paise": 28350
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "dosa",
+      "qty_milli": 3000,
+      "unit_price_paise": 8000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "coffee",
+      "qty_milli": 2000,
+      "unit_price_paise": 3000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 1000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "dosa",
+      "value_paise": 24000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 2400,
+      "net_paise": 21600
+     },
+     {
+      "id": "coffee",
+      "value_paise": 6000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 600,
+      "net_paise": 5400
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 3000,
+    "net_paise": 27000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 27000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 27000,
+      "cgst_paise": 675,
+      "sgst_paise": 675
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 27000,
+    "cgst_paise": 675,
+    "sgst_paise": 675,
+    "pre_round_total_paise": 28350,
+    "round_off_paise": 50,
+    "total_paise": 28400
+   }
+  },
+  {
+   "id": "TV-058",
+   "title": "Spec AC 18: R1 with service charge 10 percent",
+   "note": "The spec states total 34650, which is the pre-round total; with round-off on it rounds half up to 34700. Spec AC 18 to be corrected. CA to confirm tax on service charge and the round-off rule.",
+   "ca_confirm": true,
+   "spec_expect": {
+    "ref": "AC 18",
+    "service_charge_paise": 3000,
+    "taxable_paise": 33000,
+    "cgst_paise": 825,
+    "sgst_paise": 825,
+    "pre_round_total_paise": 34650
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "dosa",
+      "qty_milli": 3000,
+      "unit_price_paise": 8000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "coffee",
+      "qty_milli": 2000,
+      "unit_price_paise": 3000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "service_charge_bp": 1000
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "dosa",
+      "value_paise": 24000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 24000
+     },
+     {
+      "id": "coffee",
+      "value_paise": 6000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 6000
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 30000,
+    "service_charge_paise": 3000,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 33000,
+      "charge_alloc_paise": 3000,
+      "taxable_paise": 33000,
+      "cgst_paise": 825,
+      "sgst_paise": 825
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 33000,
+    "cgst_paise": 825,
+    "sgst_paise": 825,
+    "pre_round_total_paise": 34650,
+    "round_off_paise": 50,
+    "total_paise": 34700
+   }
+  },
+  {
+   "id": "TV-059",
+   "title": "Spec AC 19: R5, Veg Thali and Beer",
+   "note": "CA to confirm liquor treatment.",
+   "ca_confirm": true,
+   "spec_expect": {
+    "ref": "AC 19",
+    "non_gst_subtotal_paise": 10000,
+    "taxable_paise": 20000,
+    "cgst_paise": 500,
+    "sgst_paise": 500,
+    "total_paise": 31000
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "thali",
+      "qty_milli": 1000,
+      "unit_price_paise": 20000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "beer",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_non_gst"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "thali",
+      "value_paise": 20000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 20000
+     },
+     {
+      "id": "beer",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10000
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 30000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 20000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 20000,
+      "cgst_paise": 500,
+      "sgst_paise": 500
+     }
+    ],
+    "non_gst_subtotal_paise": 10000,
+    "taxable_paise": 20000,
+    "cgst_paise": 500,
+    "sgst_paise": 500,
+    "pre_round_total_paise": 31000,
+    "round_off_paise": 0,
+    "total_paise": 31000
+   }
+  },
+  {
+   "id": "TV-060",
+   "title": "Spec AC 20: R6, inclusive combo",
+   "ca_confirm": false,
+   "spec_expect": {
+    "ref": "AC 20",
+    "taxable_paise": 10000,
+    "cgst_paise": 250,
+    "sgst_paise": 250,
+    "total_paise": 10500
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "combo",
+      "qty_milli": 1000,
+      "unit_price_paise": 10500,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "combo",
+      "value_paise": 10500,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 10500
+     }
+    ],
+    "gross_paise": 10500,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 10500,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10500,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 250,
+      "sgst_paise": 250
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 10000,
+    "cgst_paise": 250,
+    "sgst_paise": 250,
+    "pre_round_total_paise": 10500,
+    "round_off_paise": 0,
+    "total_paise": 10500
+   }
+  },
+  {
+   "id": "TV-061",
+   "title": "Spec AC 21: R1 for a specified-premises outlet (18 percent)",
+   "ca_confirm": false,
+   "spec_expect": {
+    "ref": "AC 21",
+    "cgst_paise": 2700,
+    "sgst_paise": 2700,
+    "total_paise": 35400
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 900,
+      "sgst_bp": 900
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "dosa",
+      "qty_milli": 3000,
+      "unit_price_paise": 8000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "coffee",
+      "qty_milli": 2000,
+      "unit_price_paise": 3000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "dosa",
+      "value_paise": 24000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 24000
+     },
+     {
+      "id": "coffee",
+      "value_paise": 6000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 6000
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 30000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 1800,
+      "value_paise": 30000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 30000,
+      "cgst_paise": 2700,
+      "sgst_paise": 2700
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 30000,
+    "cgst_paise": 2700,
+    "sgst_paise": 2700,
+    "pre_round_total_paise": 35400,
+    "round_off_paise": 0,
+    "total_paise": 35400
+   }
+  },
+  {
+   "id": "TV-062",
+   "title": "Spec AC 22: R1 on a composition registration",
+   "note": "CA to confirm what a composition dealer issues.",
+   "ca_confirm": true,
+   "spec_expect": {
+    "ref": "AC 22",
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "total_paise": 30000
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "composition",
+    "price_mode": "exclusive",
+    "round_off": true,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "dosa",
+      "qty_milli": 3000,
+      "unit_price_paise": 8000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "coffee",
+      "qty_milli": 2000,
+      "unit_price_paise": 3000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "dosa",
+      "value_paise": 24000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 24000
+     },
+     {
+      "id": "coffee",
+      "value_paise": 6000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 0,
+      "net_paise": 6000
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 0,
+    "net_paise": 30000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 30000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 30000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     }
+    ],
+    "non_gst_subtotal_paise": 30000,
+    "taxable_paise": 0,
+    "cgst_paise": 0,
+    "sgst_paise": 0,
+    "pre_round_total_paise": 30000,
+    "round_off_paise": 0,
+    "total_paise": 30000
+   }
+  },
+  {
+   "id": "TV-063",
+   "title": "Spec AC 23: fixed discount 1000 over lines of 10000 and 20000",
+   "ca_confirm": false,
+   "spec_expect": {
+    "ref": "AC 23",
+    "bill_discount_paise": 1000,
+    "alloc": [
+     333,
+     667
+    ]
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "exclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "a",
+      "qty_milli": 1000,
+      "unit_price_paise": 10000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     },
+     {
+      "id": "b",
+      "qty_milli": 1000,
+      "unit_price_paise": 20000,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "amount",
+     "value": 1000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "value_paise": 10000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 333,
+      "net_paise": 9667
+     },
+     {
+      "id": "b",
+      "value_paise": 20000,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 667,
+      "net_paise": 19333
+     }
+    ],
+    "gross_paise": 30000,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 1000,
+    "net_paise": 29000,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 29000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 29000,
+      "cgst_paise": 725,
+      "sgst_paise": 725
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 29000,
+    "cgst_paise": 725,
+    "sgst_paise": 725,
+    "pre_round_total_paise": 30450,
+    "round_off_paise": 0,
+    "total_paise": 30450
+   }
+  },
+  {
+   "id": "TV-064",
+   "title": "Spec AC 34: inclusive price with a 10 percent discount",
+   "note": "The discount reduces the gross; tax is extracted from the discounted gross.",
+   "ca_confirm": false,
+   "spec_expect": {
+    "ref": "AC 34",
+    "taxable_paise": 9000,
+    "cgst_paise": 225,
+    "sgst_paise": 225,
+    "total_paise": 9450
+   },
+   "kind": "bill",
+   "input": {
+    "regime": "regular",
+    "price_mode": "inclusive",
+    "round_off": false,
+    "rules": {
+     "fnb_standard": {
+      "gst": true,
+      "cgst_bp": 250,
+      "sgst_bp": 250
+     },
+     "fnb_non_gst": {
+      "gst": false,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     },
+     "exempt": {
+      "gst": true,
+      "cgst_bp": 0,
+      "sgst_bp": 0
+     }
+    },
+    "lines": [
+     {
+      "id": "combo",
+      "qty_milli": 1000,
+      "unit_price_paise": 10500,
+      "modifier_delta_paise": 0,
+      "tax_class": "fnb_standard"
+     }
+    ],
+    "bill_discount": {
+     "kind": "percent",
+     "value": 1000
+    }
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "combo",
+      "value_paise": 10500,
+      "line_discount_paise": 0,
+      "bill_discount_alloc_paise": 1050,
+      "net_paise": 9450
+     }
+    ],
+    "gross_paise": 10500,
+    "line_discount_paise": 0,
+    "bill_discount_paise": 1050,
+    "net_paise": 9450,
+    "service_charge_paise": 0,
+    "packing_paise": 0,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9450,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9000,
+      "cgst_paise": 225,
+      "sgst_paise": 225
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9000,
+    "cgst_paise": 225,
+    "sgst_paise": 225,
+    "pre_round_total_paise": 9450,
+    "round_off_paise": 0,
+    "total_paise": 9450
+   }
+  },
+  {
+   "id": "TV-048",
+   "title": "Credit note: full reversal reproduces the bill totals",
+   "note": "A full credit note equals the bill to the paisa, round-off included.",
+   "ca_confirm": false,
+   "kind": "credit_note",
+   "input": {
+    "original": {
+     "regime": "regular",
+     "price_mode": "exclusive",
+     "round_off": true,
+     "rules": {
+      "fnb_standard": {
+       "gst": true,
+       "cgst_bp": 250,
+       "sgst_bp": 250
+      },
+      "fnb_non_gst": {
+       "gst": false,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      },
+      "exempt": {
+       "gst": true,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      }
+     },
+     "lines": [
+      {
+       "id": "a",
+       "qty_milli": 1000,
+       "unit_price_paise": 10000,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      },
+      {
+       "id": "b",
+       "qty_milli": 1000,
+       "unit_price_paise": 5000,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_non_gst"
+      }
+     ]
+    },
+    "credit": [
+     {
+      "line_id": "a",
+      "qty_milli": 1000
+     },
+     {
+      "line_id": "b",
+      "qty_milli": 1000
+     }
+    ]
+   },
+   "invariant": "totals_equal_original",
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 10000
+     },
+     {
+      "id": "b",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 5000
+     }
+    ],
+    "credited_net_paise": 15000,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 5000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 5000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 250,
+      "sgst_paise": 250
+     }
+    ],
+    "non_gst_subtotal_paise": 5000,
+    "taxable_paise": 10000,
+    "cgst_paise": 250,
+    "sgst_paise": 250,
+    "pre_round_total_paise": 15500,
+    "round_off_paise": 0,
+    "total_paise": 15500
+   }
+  },
+  {
+   "id": "TV-049",
+   "title": "Credit note: partial quantity",
+   "note": "RM-B10: credited value is the line value after discounts, prorated by quantity, half up.",
+   "ca_confirm": false,
+   "kind": "credit_note",
+   "input": {
+    "original": {
+     "regime": "regular",
+     "price_mode": "exclusive",
+     "round_off": true,
+     "rules": {
+      "fnb_standard": {
+       "gst": true,
+       "cgst_bp": 250,
+       "sgst_bp": 250
+      },
+      "fnb_non_gst": {
+       "gst": false,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      },
+      "exempt": {
+       "gst": true,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      }
+     },
+     "lines": [
+      {
+       "id": "a",
+       "qty_milli": 3000,
+       "unit_price_paise": 3333,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      },
+      {
+       "id": "b",
+       "qty_milli": 2000,
+       "unit_price_paise": 1999,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      }
+     ]
+    },
+    "credit": [
+     {
+      "line_id": "a",
+      "qty_milli": 1000
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 3333
+     },
+     {
+      "id": "b",
+      "credited_qty_milli": 0,
+      "credited_net_paise": 0
+     }
+    ],
+    "credited_net_paise": 3333,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 3333,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 3333,
+      "cgst_paise": 83,
+      "sgst_paise": 83
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 3333,
+    "cgst_paise": 83,
+    "sgst_paise": 83,
+    "pre_round_total_paise": 3499,
+    "round_off_paise": 1,
+    "total_paise": 3500
+   }
+  },
+  {
+   "id": "TV-050",
+   "title": "Credit note: partial with the bill discount share prorated",
+   "note": "The original bill's discount share travels with the credited quantity.",
+   "ca_confirm": false,
+   "kind": "credit_note",
+   "input": {
+    "original": {
+     "regime": "regular",
+     "price_mode": "exclusive",
+     "round_off": true,
+     "rules": {
+      "fnb_standard": {
+       "gst": true,
+       "cgst_bp": 250,
+       "sgst_bp": 250
+      },
+      "fnb_non_gst": {
+       "gst": false,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      },
+      "exempt": {
+       "gst": true,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      }
+     },
+     "lines": [
+      {
+       "id": "a",
+       "qty_milli": 2000,
+       "unit_price_paise": 10000,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      },
+      {
+       "id": "b",
+       "qty_milli": 1000,
+       "unit_price_paise": 5000,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      }
+     ],
+     "bill_discount": {
+      "kind": "percent",
+      "value": 1000
+     }
+    },
+    "credit": [
+     {
+      "line_id": "a",
+      "qty_milli": 1000
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 9000
+     },
+     {
+      "id": "b",
+      "credited_qty_milli": 0,
+      "credited_net_paise": 0
+     }
+    ],
+    "credited_net_paise": 9000,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 9000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 9000,
+      "cgst_paise": 225,
+      "sgst_paise": 225
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 9000,
+    "cgst_paise": 225,
+    "sgst_paise": 225,
+    "pre_round_total_paise": 9450,
+    "round_off_paise": 50,
+    "total_paise": 9500
+   }
+  },
+  {
+   "id": "TV-051",
+   "title": "Credit note: partial with service charge",
+   "note": "The group's charge share is prorated with the credited value. CA to confirm tax on service charge.",
+   "ca_confirm": true,
+   "kind": "credit_note",
+   "input": {
+    "original": {
+     "regime": "regular",
+     "price_mode": "exclusive",
+     "round_off": true,
+     "rules": {
+      "fnb_standard": {
+       "gst": true,
+       "cgst_bp": 250,
+       "sgst_bp": 250
+      },
+      "fnb_non_gst": {
+       "gst": false,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      },
+      "exempt": {
+       "gst": true,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      }
+     },
+     "lines": [
+      {
+       "id": "a",
+       "qty_milli": 1000,
+       "unit_price_paise": 10000,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      },
+      {
+       "id": "b",
+       "qty_milli": 1000,
+       "unit_price_paise": 5000,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_non_gst"
+      }
+     ],
+     "service_charge_bp": 1000
+    },
+    "credit": [
+     {
+      "line_id": "a",
+      "qty_milli": 1000
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 10000
+     },
+     {
+      "id": "b",
+      "credited_qty_milli": 0,
+      "credited_net_paise": 0
+     }
+    ],
+    "credited_net_paise": 10000,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 0,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 0,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 11000,
+      "charge_alloc_paise": 1000,
+      "taxable_paise": 11000,
+      "cgst_paise": 275,
+      "sgst_paise": 275
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 11000,
+    "cgst_paise": 275,
+    "sgst_paise": 275,
+    "pre_round_total_paise": 11550,
+    "round_off_paise": 50,
+    "total_paise": 11600
+   }
+  },
+  {
+   "id": "TV-052",
+   "title": "Credit note: full reversal of an inclusive-price bill",
+   "ca_confirm": false,
+   "kind": "credit_note",
+   "input": {
+    "original": {
+     "regime": "regular",
+     "price_mode": "inclusive",
+     "round_off": true,
+     "rules": {
+      "fnb_standard": {
+       "gst": true,
+       "cgst_bp": 250,
+       "sgst_bp": 250
+      },
+      "fnb_non_gst": {
+       "gst": false,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      },
+      "exempt": {
+       "gst": true,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      }
+     },
+     "lines": [
+      {
+       "id": "a",
+       "qty_milli": 1000,
+       "unit_price_paise": 10500,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      },
+      {
+       "id": "b",
+       "qty_milli": 1000,
+       "unit_price_paise": 4000,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_non_gst"
+      }
+     ]
+    },
+    "credit": [
+     {
+      "line_id": "a",
+      "qty_milli": 1000
+     },
+     {
+      "line_id": "b",
+      "qty_milli": 1000
+     }
+    ]
+   },
+   "invariant": "totals_equal_original",
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 10500
+     },
+     {
+      "id": "b",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 4000
+     }
+    ],
+    "credited_net_paise": 14500,
+    "groups": [
+     {
+      "tax_class": "fnb_non_gst",
+      "gst_applies": false,
+      "rate_bp": 0,
+      "value_paise": 4000,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 4000,
+      "cgst_paise": 0,
+      "sgst_paise": 0
+     },
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 10500,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 10000,
+      "cgst_paise": 250,
+      "sgst_paise": 250
+     }
+    ],
+    "non_gst_subtotal_paise": 4000,
+    "taxable_paise": 10000,
+    "cgst_paise": 250,
+    "sgst_paise": 250,
+    "pre_round_total_paise": 14500,
+    "round_off_paise": 0,
+    "total_paise": 14500
+   }
+  },
+  {
+   "id": "TV-053",
+   "title": "Credit note: more than the original quantity is refused",
+   "ca_confirm": false,
+   "kind": "credit_note",
+   "input": {
+    "original": {
+     "regime": "regular",
+     "price_mode": "exclusive",
+     "round_off": true,
+     "rules": {
+      "fnb_standard": {
+       "gst": true,
+       "cgst_bp": 250,
+       "sgst_bp": 250
+      },
+      "fnb_non_gst": {
+       "gst": false,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      },
+      "exempt": {
+       "gst": true,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      }
+     },
+     "lines": [
+      {
+       "id": "a",
+       "qty_milli": 3000,
+       "unit_price_paise": 3333,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      },
+      {
+       "id": "b",
+       "qty_milli": 2000,
+       "unit_price_paise": 1999,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      }
+     ]
+    },
+    "credit": [
+     {
+      "line_id": "a",
+      "qty_milli": 3001
+     }
+    ]
+   },
+   "expected_error": "credit_exceeds_original"
+  },
+  {
+   "id": "TV-054",
+   "title": "Credit note: one unit of three; the parts of a bill may differ from it by rounding",
+   "note": "The sum of the credit notes of a bill can differ from the bill by a paisa of rounding; the document register and the verification accept a difference within the rounding of one rupee per tax group (RM-B9). CA to confirm.",
+   "ca_confirm": true,
+   "kind": "credit_note",
+   "input": {
+    "original": {
+     "regime": "regular",
+     "price_mode": "exclusive",
+     "round_off": false,
+     "rules": {
+      "fnb_standard": {
+       "gst": true,
+       "cgst_bp": 250,
+       "sgst_bp": 250
+      },
+      "fnb_non_gst": {
+       "gst": false,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      },
+      "exempt": {
+       "gst": true,
+       "cgst_bp": 0,
+       "sgst_bp": 0
+      }
+     },
+     "lines": [
+      {
+       "id": "a",
+       "qty_milli": 3000,
+       "unit_price_paise": 3333,
+       "modifier_delta_paise": 0,
+       "tax_class": "fnb_standard"
+      }
+     ]
+    },
+    "credit": [
+     {
+      "line_id": "a",
+      "qty_milli": 1000
+     }
+    ]
+   },
+   "expected": {
+    "lines": [
+     {
+      "id": "a",
+      "credited_qty_milli": 1000,
+      "credited_net_paise": 3333
+     }
+    ],
+    "credited_net_paise": 3333,
+    "groups": [
+     {
+      "tax_class": "fnb_standard",
+      "gst_applies": true,
+      "rate_bp": 500,
+      "value_paise": 3333,
+      "charge_alloc_paise": 0,
+      "taxable_paise": 3333,
+      "cgst_paise": 83,
+      "sgst_paise": 83
+     }
+    ],
+    "non_gst_subtotal_paise": 0,
+    "taxable_paise": 3333,
+    "cgst_paise": 83,
+    "sgst_paise": 83,
+    "pre_round_total_paise": 3499,
+    "round_off_paise": 0,
+    "total_paise": 3499
+   }
+  }
+ ]
+}
