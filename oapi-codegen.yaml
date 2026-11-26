@@ -1,0 +1,15 @@
+# oapi-codegen configuration for internal/gen (scripts/gen.sh passes it with -config; the input is the bundled
+# api-specs document). Only date-time is remapped: the wire form is exactly three fractional digits.
+package: gen
+generate:
+  models: true
+  client: true
+  std-http-server: true
+output: internal/gen/billing.gen.go
+output-options:
+  type-mapping:
+    string:
+      formats:
+        date-time:
+          type: tstamp.Time
+          import: github.com/hostryhq/svc-billing/internal/tstamp

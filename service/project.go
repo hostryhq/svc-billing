@@ -1,0 +1,442 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"time"
+
+	"github.com/hostryhq/go-common/ids"
+	gsync "github.com/hostryhq/go-common/sync"
+
+	"github.com/hostryhq/svc-billing/internal/gen"
+	"github.com/hostryhq/svc-billing/internal/tstamp"
+	"github.com/hostryhq/svc-billing/repository"
+)
+
+// Project applies one op in its own transaction (the double and the tests; the bus consumer calls ApplyOp inside the
+// inbox transaction).
+func (s *Service) Project(ctx context.Context, op Op) error {
+	return s.repo.InTx(ctx, func(ctx context.Context, tx repository.Tx) error { return s.ApplyOp(ctx, tx, op) })
+}
+
+// registry loads the synced-entity registry once (api-specs entities/, embedded by make gen).
+func (s *Service) registry() (*gsync.Registry, error) {
+	s.regOnce.Do(func() { s.reg, s.regErr = gen.Registry() })
+	return s.reg, s.regErr
+}
+
+// Owns reports whether any mutation of the op touches an entity billing owns (or the op carries a void), by the
+// registry's owner field. Replicas are not billing's: nothing is replicated to billing (ADR-0014 A2.4).
+func (s *Service) Owns(op Op) bool {
+	reg, err := s.registry()
+	if err != nil {
+		return true
+	}
+	for _, m := range op.Muts {
+		if reg.RoleOf(Name, m.E) != gsync.RoleNone {
+			return true
+		}
+	}
+	return len(op.Voids) > 0 || len(op.PIIErase) > 0 || len(op.SeriesClose) > 0
+}
+
+// Name is the service name in the registry (entity owner) and in service tokens.
+const Name = "billing"
+
+type applyCtx struct {
+	s      *Service
+	tx     repository.Tx
+	op     Op
+	outlet string
+	tenant ids.ID
+	g      map[string][]Mut
+	rows   map[string][]gsync.Row // rows the engine resolved for this op, by entity
+	reason string                 // why the last recompute could not run (engine error code)
+}
+
+// ApplyOp projects the billing-owned mutations of one accepted op, idempotently: an op is identified by
+// (origin, stream, seq), so a replay (redelivery, restore, bus reset) changes nothing (ADR-0011 E3).
+//
+// Two layers. The projection engine (go-common sync) records every owned mutation as a candidate and resolves the rows
+// per field policy, order-free; the configuration entities (settings, tax profile, tenders) are written from those
+// resolved rows, so concurrent edits and voids converge whatever the arrival order. The trading facts (bills, payments,
+// days) are immutable inserts that the steps below fold into the read models and aggregates once per op.
+func (s *Service) ApplyOp(ctx context.Context, tx repository.Tx, op Op) error {
+	if !s.Owns(op) {
+		return nil
+	}
+	first, err := tx.MarkOp(ctx, op.Origin, op.Stream, op.Seq, op.Hash)
+	if err != nil || !first {
+		return err
+	}
+	t, err := tenantOf(ctx)
+	if err != nil {
+		return err
+	}
+	reg, err := s.registry()
+	if err != nil {
+		return err
+	}
+	eng := gsync.Engine{Reg: reg, Service: Name, Store: tx.SyncStore()}
+	res, err := eng.Apply(ctx, op.syncOp())
+	if err != nil {
+		return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
+	}
+	// personal data (verified against its commitments by ParseOp) and erasures were written through the engine's store; the
+	// device's series statements and the digest rows follow
+	for _, sc := range op.SeriesClose {
+		if err := s.recordStatement(ctx, tx, op.Origin, sc); err != nil {
+			return err
+		}
+	}
+	rows := map[string][]gsync.Row{}
+	for _, r := range res.Rows {
+		rows[r.Key.Entity] = append(rows[r.Key.Entity], r)
+	}
+	ac := &applyCtx{s: s, tx: tx, op: op, outlet: op.OutletOf(), tenant: t, g: byEntity(op.Muts), rows: rows}
+	if err := ac.digestRows(ctx, reg, res.Rows); err != nil {
+		return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
+	}
+	for _, step := range []func(context.Context) error{
+		ac.config, ac.ruleSets, ac.dayOpen, ac.shifts, ac.bills, ac.creditNotes, ac.payments, ac.refunds, ac.allowances, ac.internal, ac.dayClose,
+	} {
+		if err := step(ctx); err != nil {
+			return fmt.Errorf("apply %s/%s/%d: %w", op.Origin, op.Stream, op.Seq, err)
+		}
+	}
+	return nil
+}
+
+// ---- lateness ----
+
+// opRef names the op a projected document came from: who issued it, its place in the origin's log and its instant.
+type opRef struct {
+	Origin string
+	Seq    int64
+	At     time.Time
+}
+
+func (ac *applyCtx) ref() opRef { return opRef{Origin: ac.op.Origin, Seq: ac.op.Seq, At: ac.op.At} }
+
+// lateDay reports whether a document of this op with the business date falls on a day that was closed with a cutoff
+// that did not cover it (A1.1 item 5), and returns that day.
+func (ac *applyCtx) lateDay(ctx context.Context, date, number string) (gen.BusinessDay, bool, error) {
+	var d gen.BusinessDay
+	doc, err := ac.tx.GetDoc(ctx, repository.KindBusinessDay, dayID(ac.outlet, date))
+	if err == repository.ErrNotFound {
+		return d, false, nil
+	}
+	if err != nil {
+		return d, false, err
+	}
+	if d, err = unmarshalDoc[gen.BusinessDay](doc); err != nil {
+		return d, false, err
+	}
+	return d, isLate(d, ac.ref(), number), nil
+}
+
+// isLate decides whether a document of the op r is outside the Z of the closed day d. The Z is exactly the documents its
+// version vector names (A1.1 item 4): when the close carries a vector, that alone decides, and no device clock is read,
+// because the origin's clock and the closing device's clock are not comparable (CR-H4). Only a close with no vector falls
+// back on the cutoff instant, then on the series ranges the Z printed (F22). A day that is open, or closed with no
+// cutoff at all, covers everything.
+func isLate(d gen.BusinessDay, r opRef, number string) bool {
+	if d.Status != gen.BusinessDayStatusClosed || d.Close == nil {
+		return false
+	}
+	var cut map[string]int64
+	if json.Unmarshal([]byte(d.Close.Cutoff), &cut) == nil && cut != nil {
+		return r.Seq > cut[r.Origin]
+	}
+	if !d.Close.CutoffAt.IsZero() {
+		if r.At.After(d.Close.CutoffAt.Time) {
+			return true
+		}
+		// No usable vector (a client that sends a time in `cutoff`): the Z's own series ranges say what it printed. A numbered
+		// document of a series the Z does not list, or above its last number, was not in it (F22).
+		return !zCovers(d.Close.SeriesRanges, number)
+	}
+	if at, err := time.Parse(time.RFC3339Nano, d.Close.Cutoff); err == nil {
+		return r.At.After(at)
+	}
+	return false
+}
+
+// Fact is the stored account of one projected document's contribution to its day: what it added, which op it came from
+// and whether it was counted as late. The close of a day re-examines the facts already stored, so whether a document is
+// late never depends on whether it or the close reached billing first (CR-H3, A2.1 item 5).
+type Fact struct {
+	Kind    string            `json:"kind"`
+	Subject string            `json:"subject"`
+	Origin  string            `json:"origin"`
+	Seq     int64             `json:"seq"`
+	At      time.Time         `json:"at"`
+	Number  string            `json:"number,omitempty"`
+	Totals  gen.DayTotals     `json:"totals"`
+	Ranges  []gen.SeriesRange `json:"ranges,omitempty"`
+	Counted bool              `json:"counted"`
+}
+
+func factID(kind, subject string) string { return uuid5("fact", kind+"|"+subject) }
+
+// settle stores the fact of a document and, when it is late, counts it in the origin's pending revision.
+func (ac *applyCtx) settle(ctx context.Context, day gen.BusinessDay, late bool, kind, subject, number, date string, contrib gen.DayTotals, ranges []gen.SeriesRange) error {
+	r := ac.ref()
+	f := Fact{Kind: kind, Subject: subject, Origin: r.Origin, Seq: r.Seq, At: r.At, Number: number, Totals: contrib, Ranges: ranges, Counted: late}
+	if _, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindFact, ID: factID(kind, subject), Outlet: ac.outlet, Date: date, K1: kind, Body: marshalDoc(f)}); err != nil {
+		return err
+	}
+	if !late {
+		return nil
+	}
+	return ac.addLate(ctx, day, contrib, ranges, kind, subject, r)
+}
+
+// reexamine re-evaluates the stored facts of a day against the close that was just applied (or swapped in): a document
+// that reached billing before the close and is outside the Z is late now, and joins its origin's revision.
+func (ac *applyCtx) reexamine(ctx context.Context, date string) error {
+	facts, docs, err := loadAll[Fact](ctx, ac.tx, repository.Query{Kind: repository.KindFact, Outlets: []string{ac.outlet}, DateFrom: date, DateTo: date})
+	if err != nil {
+		return err
+	}
+	touched := map[string]bool{} // origins whose pending revision lost a document
+	for i, f := range facts {
+		if f.Counted {
+			// A close swapped in may cover a document the earlier close missed: it is not late, so un-count it (RM2). A batch
+			// already sealed into a revision cannot be unwound; its facts stay counted.
+			day, err := ac.getOrNewDay(ctx, date)
+			if err != nil {
+				return err
+			}
+			if isLate(day, opRef{Origin: f.Origin, Seq: f.Seq, At: f.At}, f.Number) {
+				continue
+			}
+			if _, err := ac.tx.GetDoc(ctx, repository.KindLatePending, day.Id+"|"+f.Origin); err != nil {
+				if err == repository.ErrNotFound {
+					continue
+				}
+				return err
+			}
+			f.Counted = false
+			facts[i] = f
+			docs[i].Body = marshalDoc(f)
+			if err := ac.tx.SaveDoc(ctx, docs[i]); err != nil {
+				return err
+			}
+			touched[f.Origin] = true
+			if err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindBusinessDay, ID: day.Id, Outlet: ac.outlet, Date: day.BusinessDate.String(), Sort: day.BusinessDate.String()},
+				func(d *gen.BusinessDay) {
+					if d.LateDocumentCount > 0 {
+						d.LateDocumentCount--
+					}
+				}); err != nil {
+				return err
+			}
+			if f.Kind == "bill" {
+				if b, err := ac.tx.GetDoc(ctx, repository.KindBill, f.Subject); err == nil {
+					rec, err := unmarshalDoc[BillRec](b)
+					if err != nil {
+						return err
+					}
+					rec.Detail.Late = false
+					b.Body = marshalDoc(rec)
+					if err := ac.tx.SaveDoc(ctx, b); err != nil {
+						return err
+					}
+				}
+			}
+			continue
+		}
+		day, err := ac.getOrNewDay(ctx, date)
+		if err != nil {
+			return err
+		}
+		r := opRef{Origin: f.Origin, Seq: f.Seq, At: f.At}
+		if !isLate(day, r, f.Number) {
+			continue
+		}
+		if err := ac.addLate(ctx, day, f.Totals, f.Ranges, f.Kind, f.Subject, r); err != nil {
+			return err
+		}
+		f.Counted = true
+		facts[i] = f
+		docs[i].Body = marshalDoc(f)
+		if err := ac.tx.SaveDoc(ctx, docs[i]); err != nil {
+			return err
+		}
+		if f.Kind == "bill" {
+			if b, err := ac.tx.GetDoc(ctx, repository.KindBill, f.Subject); err == nil {
+				rec, err := unmarshalDoc[BillRec](b)
+				if err != nil {
+					return err
+				}
+				rec.Detail.Late = true
+				b.Body = marshalDoc(rec)
+				if err := ac.tx.SaveDoc(ctx, b); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	for origin := range touched {
+		if err := ac.rebuildPending(ctx, date, origin, facts); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rebuildPending recomputes the pending revision batch of one origin from the facts of the day that are still counted, or
+// drops it when none is left.
+func (ac *applyCtx) rebuildPending(ctx context.Context, date, origin string, facts []Fact) error {
+	day, err := ac.getOrNewDay(ctx, date)
+	if err != nil {
+		return err
+	}
+	id := day.Id + "|" + origin
+	d, err := ac.tx.GetDoc(ctx, repository.KindLatePending, id)
+	if err == repository.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	p, err := unmarshalDoc[LatePending](d)
+	if err != nil {
+		return err
+	}
+	p.Totals, p.Series = emptyTotals(), nil
+	n := 0
+	for _, f := range facts {
+		if !f.Counted || f.Origin != origin {
+			continue
+		}
+		if n == 0 || f.Seq < p.FromSeq {
+			p.FromSeq = f.Seq
+		}
+		if n == 0 || f.Seq > p.ToSeq {
+			p.ToSeq = f.Seq
+		}
+		n++
+		p.Totals = addTotals(p.Totals, f.Totals)
+		p.Series = mergeRanges(p.Series, f.Ranges)
+	}
+	if n == 0 {
+		return ac.tx.DeleteDoc(ctx, repository.KindLatePending, id)
+	}
+	d.Body = marshalDoc(p)
+	return ac.tx.SaveDoc(ctx, d)
+}
+
+// addLate adds a late document's contribution to the origin's pending revision batch and counts it on the day.
+func (ac *applyCtx) addLate(ctx context.Context, day gen.BusinessDay, contrib gen.DayTotals, ranges []gen.SeriesRange, kind, subject string, r opRef) error {
+	id := day.Id + "|" + r.Origin
+	now := nowUTC(ac.s)
+	if err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindLatePending, ID: id, Outlet: ac.outlet, Date: day.BusinessDate.String(), K1: day.Id, K2: r.Origin},
+		func(p *LatePending) {
+			if p.DayID == "" {
+				p.DayID, p.Origin, p.Cause, p.FromSeq, p.Totals = day.Id, r.Origin, "late_device", r.Seq, emptyTotals()
+			}
+			if r.Seq > p.ToSeq {
+				p.ToSeq = r.Seq
+			}
+			if r.Seq < p.FromSeq {
+				p.FromSeq = r.Seq
+			}
+			p.LastAt = now.Format(tstamp.Layout)
+			p.Totals = addTotals(p.Totals, contrib)
+			p.Series = mergeRanges(p.Series, ranges)
+		}); err != nil {
+		return err
+	}
+	if err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindBusinessDay, ID: day.Id, Outlet: ac.outlet, Date: day.BusinessDate.String(), Sort: day.BusinessDate.String()},
+		func(d *gen.BusinessDay) {
+			if d.Id == "" {
+				*d = day
+			}
+			d.LateDocumentCount++
+		}); err != nil {
+		return err
+	}
+	return ac.exception(ctx, "late_document", gen.Info, kind, subject, day.BusinessDate.String(), map[string]any{"revision_origin": r.Origin})
+}
+
+// ---- exceptions ----
+
+// exception records a detector finding once per (kind, subject).
+func (ac *applyCtx) exception(ctx context.Context, kind string, sev gen.ExceptionSeverity, subjectKind, subjectID, date string, params map[string]any) error {
+	return ac.exceptionWhy(ctx, kind, sev, "", subjectKind, subjectID, date, params)
+}
+
+// exceptionWhy is exception with the reason the detector fired when its kind has more than one cause (`missing`: the approval
+// or document the subject needed never arrived).
+func (ac *applyCtx) exceptionWhy(ctx context.Context, kind string, sev gen.ExceptionSeverity, why gen.ExceptionReason, subjectKind, subjectID, date string, params map[string]any) error {
+	id := exceptionID(kind, subjectID, params)
+	ex := gen.Exception{Id: id, Kind: kind, Severity: sev, Status: gen.ExceptionStatusOpen, SubjectKind: subjectKind, SubjectId: subjectID,
+		OutletId: ac.outlet, DetectedAt: tstamp.Of(ac.s.clock.Now()), DetailKey: "exception." + kind}
+	if date != "" {
+		var d gen.BusinessDay
+		_ = d
+		ex.BusinessDate = parseDate(date)
+	}
+	if why != "" {
+		ex.Reason = &why
+	}
+	if len(params) > 0 {
+		p := params
+		ex.Params = &p
+	}
+	_, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindException, ID: id, Outlet: ac.outlet, Date: date, Sort: ex.DetectedAt.String(), K1: kind, K2: "open", Body: marshalDoc(ex)})
+	return err
+}
+
+// exceptionID is deterministic so a replay never duplicates a finding.
+func exceptionID(kind, subject string, params map[string]any) string {
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	name := kind + "|" + subject
+	return uuid5("exception", name)
+}
+
+// resolveException closes an open finding when the resolving fact arrived.
+func (ac *applyCtx) resolveException(ctx context.Context, kind, subjectID, ref string) error {
+	id := exceptionID(kind, subjectID, nil)
+	d, err := ac.tx.GetDoc(ctx, repository.KindException, id)
+	if err == repository.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	ex, err := unmarshalDoc[gen.Exception](d)
+	if err != nil || ex.Status != gen.ExceptionStatusOpen {
+		return err
+	}
+	ex.Status = gen.ExceptionStatusResolved
+	ex.ResolvedAt = tstamp.Ptr(ac.s.clock.Now())
+	ex.ResolvedByRef = &ref
+	d.K2, d.Body = "resolved", marshalDoc(ex)
+	return ac.tx.SaveDoc(ctx, d)
+}
+
+// zCovers reports whether the series ranges a Z printed hold the document number. An unnumbered document, or a number that
+// does not parse, is taken as covered (nothing to compare).
+func zCovers(ranges []gen.SeriesRange, number string) bool {
+	code, _, n, ok := splitNumber(number)
+	if !ok {
+		return true
+	}
+	for _, r := range ranges {
+		c, _, first, ok1 := splitNumber(r.FirstNumber)
+		_, _, last, ok2 := splitNumber(r.LastNumber)
+		if c == code && ok1 && ok2 && n >= first && n <= last {
+			return true
+		}
+	}
+	return false
+}

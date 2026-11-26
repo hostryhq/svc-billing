@@ -34,3 +34,6 @@ coverage/
 target/
 src-tauri/target/
 src-tauri/gen/
+go.work
+go.work.sum
+.tmp/
