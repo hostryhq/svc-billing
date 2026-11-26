@@ -14,6 +14,16 @@ import (
 // rebillAs is rebill taken under the given intent; replacementTotal, when non-zero, is written on the credit note.
 func (f *fixture) rebillAs(t *testing.T, intent string, n int, orig, replacement string, cgst int, replacementTotal int64) {
 	t.Helper()
+	var marks []string
+	if intent == "bill.rebill.approved" { // as the gateway marks an op whose cited approval it cleared
+		marks = []string{"approved_by:" + member}
+	}
+	f.rebillMarked(t, intent, marks, n, orig, replacement, cgst, replacementTotal)
+}
+
+// rebillMarked is rebillAs with the gateway's marks given.
+func (f *fixture) rebillMarked(t *testing.T, intent string, marks []string, n int, orig, replacement string, cgst int, replacementTotal int64) {
+	t.Helper()
 	cn := rebillID(n)
 	ms := fullCreditMuts(cn, fmt.Sprintf("AAA/2627/CN%04d", n), orig, 2000, 48000, 1200)
 	ms[0].F["rebill_group_id"] = fmt.Sprintf("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f9d%02d", n)
@@ -25,7 +35,7 @@ func (f *fixture) rebillAs(t *testing.T, intent string, n int, orig, replacement
 	k := tenantA + deviceA + outletStream
 	f.seq[k]++
 	op := service.Op{Tenant: tenantA, Origin: deviceA, Stream: outletStream, Seq: f.seq[k], Hash: fmt.Sprintf("h%d", f.seq[k]), HLC: fmt.Sprintf("%016x", f.clk.Now().UnixMilli()<<16),
-		Intent: intent, At: f.clk.Now(), Actor: member, Muts: int64s(append(ms, bm...))}
+		Intent: intent, Marks: marks, At: f.clk.Now(), Actor: member, Muts: int64s(append(ms, bm...))}
 	if err := f.svc.Project(f.sys(tenantA), op); err != nil {
 		t.Fatal(err)
 	}
@@ -99,5 +109,17 @@ func TestReplacementTotalIsPartOfTheCreditNoteDigest(t *testing.T) {
 	}
 	if a, b, c := hash(0), hash(50400), hash(50400); a == b || b != c {
 		t.Fatalf("the digest must cover replacement_total_paise: absent %s, set %s, set again %s", a, b, c)
+	}
+}
+
+// P2R-M1: the approved intent without a cleared citation (no approved_by mark) is a plain re-bill.
+func TestApprovedRebillIntentWithoutACitationIsNotApproved(t *testing.T) {
+	f := newFixture(t)
+	f.apply(tenantA, deviceA, outletStream, billMuts(billID(64), number(2), 1200, false)...)
+	f.apply(tenantA, deviceB, outletStream, payMut("0190a1b2-c3d4-7e5f-8a9b-0c1d2e3f9f02", billID(64), "cash", 50400))
+	f.rebillMarked(t, "bill.rebill.approved", nil, 1, billID(64), billID(65), 1200, 0)
+	ex := f.exceptions("rebill_after_payment")
+	if len(ex) != 1 || ex[0].Reason == nil || *ex[0].Reason != gen.Missing {
+		t.Fatalf("exceptions %+v", ex)
 	}
 }

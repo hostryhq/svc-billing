@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/hostryhq/svc-billing/internal/gen"
@@ -76,6 +77,23 @@ type RebillRec struct {
 // approvedRebillIntent is the intent of a re-bill taken with a manager's approval (after a payment, or past the allowance).
 const approvedRebillIntent = "bill.rebill.approved"
 
+// approvedBy is the mark the sync gateway puts on an op whose cited approval it cleared (svc-sync service.MarkApprovedBy).
+const approvedBy = "approved_by:"
+
+// approvedRebill reports a re-bill a cleared approval covers (P2R-M1): the approved intent alone is not enough, because a
+// holder of bill.credit_note.create can send it without citing anyone; the gateway's approved_by mark is the proof.
+func (o Op) approvedRebill() bool {
+	if o.Intent != approvedRebillIntent {
+		return false
+	}
+	for _, m := range o.Marks {
+		if strings.HasPrefix(m, approvedBy) && len(m) > len(approvedBy) {
+			return true
+		}
+	}
+	return false
+}
+
 // shiftKey names the shift a member's document belongs to: the member's shift that was open at the instant, else the
 // business date (a shift fact that has not arrived yet must not let a count restart).
 func (ac *applyCtx) shiftKey(ctx context.Context, member, date string, at time.Time) (string, error) {
@@ -146,7 +164,7 @@ func (ac *applyCtx) rebill(ctx context.Context, note Mut, group string) error {
 		return err
 	}
 	rec := RebillRec{Group: group, NoteID: note.ID, OrigBillID: fstr(note.F, "bill_id"), Member: member, ShiftKey: shift, At: ac.op.At, Credited: credited, Reduction: credited - replaced,
-		Approved: ac.op.Intent == approvedRebillIntent}
+		Approved: ac.op.approvedRebill()}
 	created, err := ac.tx.PutDoc(ctx, repository.Doc{Kind: repository.KindRebill, ID: group, Outlet: ac.outlet, Date: date, K1: member, Body: marshalDoc(rec)})
 	if err != nil || !created {
 		return err

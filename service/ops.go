@@ -31,8 +31,10 @@ type Op struct {
 	Intent string
 	At     time.Time
 	Actor  string
-	Doc    *OpDoc
-	Muts   []Mut
+	// Marks are the gateway's marks on the op (approved_by:<approver> when a cited approval cleared it).
+	Marks []string
+	Doc   *OpDoc
+	Muts  []Mut
 	// Voids are the ops named by sync_void records. PII is the verified personal data beside the op with its salts and
 	// commitments, PIIErase the ops whose personal data this op erases (intent sync.pii.erase) and SeriesClose the device's
 	// statements of the last number of a closed series (intent series.close); all from ParseOp.
@@ -53,7 +55,7 @@ type OpDoc struct {
 // OpOf converts a parsed sync op.
 func OpOf(o *gsync.Op) Op {
 	op := Op{Tenant: o.TenantID.String(), Outlet: o.OutletID.String(), Origin: o.Ref.Origin, Stream: o.Ref.Stream, Seq: o.Ref.Seq, Hash: o.H, HLC: o.HLC,
-		Intent: o.Intent, At: o.At, Actor: o.Actor, Muts: o.Muts, Voids: o.Voids, PII: o.PII, PIISalts: o.PIISalts, PIICommits: o.PIICommits, PIIErase: o.PIIErase, SeriesClose: o.SeriesClose}
+		Intent: o.Intent, At: o.At, Actor: o.Actor, Marks: o.Marks, Muts: o.Muts, Voids: o.Voids, PII: o.PII, PIISalts: o.PIISalts, PIICommits: o.PIICommits, PIIErase: o.PIIErase, SeriesClose: o.SeriesClose}
 	if o.Doc != nil {
 		op.Doc = &OpDoc{Type: o.Doc.Type, Number: o.Doc.Number}
 	}
