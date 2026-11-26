@@ -112,6 +112,11 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 			return err
 		}
 		applyPayments(&rec.Detail, pays)
+		for _, p := range pays {
+			if err := ac.resolveException(ctx, "payment_unmatched", p.Id, m.ID); err != nil {
+				return err
+			}
+		}
 		// credit notes that arrived before the bill
 		earlier, _, err := loadAll[CreditRec](ctx, ac.tx, repository.Query{Kind: repository.KindCreditNote, K1: m.ID})
 		if err != nil {
@@ -390,7 +395,12 @@ func (ac *applyCtx) payments(ctx context.Context) error {
 		}
 		b, err := ac.tx.GetDoc(ctx, repository.KindBill, p.BillId)
 		if err == repository.ErrNotFound {
-			continue // orphan tolerance: the bill's arrival picks the payment up
+			// orphan tolerance: the bill's arrival picks the payment up and closes this finding. Until then (or for good, when the
+			// bill was quarantined or never comes) the money stays in the totals and the owner sees the payment (O2-22).
+			if err := ac.exception(ctx, "payment_unmatched", gen.Warning, "payment", p.Id, date, map[string]any{"bill_id": p.BillId}); err != nil {
+				return err
+			}
+			continue
 		}
 		if err != nil {
 			return err
