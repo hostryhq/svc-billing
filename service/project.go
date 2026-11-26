@@ -201,8 +201,52 @@ func (ac *applyCtx) reexamine(ctx context.Context, date string) error {
 	if err != nil {
 		return err
 	}
+	touched := map[string]bool{} // origins whose pending revision lost a document
 	for i, f := range facts {
 		if f.Counted {
+			// A close swapped in may cover a document the earlier close missed: it is not late, so un-count it (RM2). A batch
+			// already sealed into a revision cannot be unwound; its facts stay counted.
+			day, err := ac.getOrNewDay(ctx, date)
+			if err != nil {
+				return err
+			}
+			if isLate(day, opRef{Origin: f.Origin, Seq: f.Seq, At: f.At}, f.Number) {
+				continue
+			}
+			if _, err := ac.tx.GetDoc(ctx, repository.KindLatePending, day.Id+"|"+f.Origin); err != nil {
+				if err == repository.ErrNotFound {
+					continue
+				}
+				return err
+			}
+			f.Counted = false
+			facts[i] = f
+			docs[i].Body = marshalDoc(f)
+			if err := ac.tx.SaveDoc(ctx, docs[i]); err != nil {
+				return err
+			}
+			touched[f.Origin] = true
+			if err := modify(ctx, ac.tx, repository.Doc{Kind: repository.KindBusinessDay, ID: day.Id, Outlet: ac.outlet, Date: day.BusinessDate.String(), Sort: day.BusinessDate.String()},
+				func(d *gen.BusinessDay) {
+					if d.LateDocumentCount > 0 {
+						d.LateDocumentCount--
+					}
+				}); err != nil {
+				return err
+			}
+			if f.Kind == "bill" {
+				if b, err := ac.tx.GetDoc(ctx, repository.KindBill, f.Subject); err == nil {
+					rec, err := unmarshalDoc[BillRec](b)
+					if err != nil {
+						return err
+					}
+					rec.Detail.Late = false
+					b.Body = marshalDoc(rec)
+					if err := ac.tx.SaveDoc(ctx, b); err != nil {
+						return err
+					}
+				}
+			}
 			continue
 		}
 		day, err := ac.getOrNewDay(ctx, date)
@@ -217,6 +261,7 @@ func (ac *applyCtx) reexamine(ctx context.Context, date string) error {
 			return err
 		}
 		f.Counted = true
+		facts[i] = f
 		docs[i].Body = marshalDoc(f)
 		if err := ac.tx.SaveDoc(ctx, docs[i]); err != nil {
 			return err
@@ -235,7 +280,54 @@ func (ac *applyCtx) reexamine(ctx context.Context, date string) error {
 			}
 		}
 	}
+	for origin := range touched {
+		if err := ac.rebuildPending(ctx, date, origin, facts); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// rebuildPending recomputes the pending revision batch of one origin from the facts of the day that are still counted, or
+// drops it when none is left.
+func (ac *applyCtx) rebuildPending(ctx context.Context, date, origin string, facts []Fact) error {
+	day, err := ac.getOrNewDay(ctx, date)
+	if err != nil {
+		return err
+	}
+	id := day.Id + "|" + origin
+	d, err := ac.tx.GetDoc(ctx, repository.KindLatePending, id)
+	if err == repository.ErrNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	p, err := unmarshalDoc[LatePending](d)
+	if err != nil {
+		return err
+	}
+	p.Totals, p.Series = emptyTotals(), nil
+	n := 0
+	for _, f := range facts {
+		if !f.Counted || f.Origin != origin {
+			continue
+		}
+		if n == 0 || f.Seq < p.FromSeq {
+			p.FromSeq = f.Seq
+		}
+		if n == 0 || f.Seq > p.ToSeq {
+			p.ToSeq = f.Seq
+		}
+		n++
+		p.Totals = addTotals(p.Totals, f.Totals)
+		p.Series = mergeRanges(p.Series, f.Ranges)
+	}
+	if n == 0 {
+		return ac.tx.DeleteDoc(ctx, repository.KindLatePending, id)
+	}
+	d.Body = marshalDoc(p)
+	return ac.tx.SaveDoc(ctx, d)
 }
 
 // addLate adds a late document's contribution to the origin's pending revision batch and counts it on the day.

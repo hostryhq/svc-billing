@@ -66,6 +66,9 @@ type CreditCalc struct {
 	TotalPaise    int64        `json:"total_paise"`
 	OpOrigin      string       `json:"op_origin"`
 	OpSeq         int64        `json:"op_seq"`
+	// CountedTax is the tax the tax summary has counted for the note (capped at the bill); nil until the bill is known, when it
+	// has counted the note in full.
+	CountedTax []gen.TaxLine `json:"counted_tax,omitempty"`
 }
 
 // CreditLine is a credited quantity of an original bill line.

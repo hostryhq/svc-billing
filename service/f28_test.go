@@ -40,6 +40,62 @@ func TestOverCreditDoesNotReduceTaxBeyondTheBill(t *testing.T) {
 	}
 }
 
+// RM1: the capped reduction goes to the earlier note by invoice date (then number, then id), whatever the arrival order,
+// so it lands in the same GST period across a month boundary.
+func TestCappedCreditTaxLandsOnTheSameDateInAnyArrivalOrder(t *testing.T) {
+	early := func() []service.Mut { return fullCreditMuts(cn1, "AAA/2627/CN0001", billID(41), 2000, 48000, 1200) }
+	late := func() []service.Mut {
+		ms := fullCreditMuts(cn2, "BBB/2627/CN0001", billID(41), 2000, 48000, 1200)
+		ms[0].F["invoice_date"] = "2026-12-01"
+		return ms
+	}
+	orders := map[string]func(f *fixture){
+		"early, late, bill": func(f *fixture) {
+			f.apply(tenantA, deviceA, outletStream, early()...)
+			f.apply(tenantA, deviceB, outletStream, late()...)
+			f.apply(tenantA, deviceA, outletStream, billMuts(billID(41), number(1), 1200, true)...)
+		},
+		"late, early, bill": func(f *fixture) {
+			f.apply(tenantA, deviceB, outletStream, late()...)
+			f.apply(tenantA, deviceA, outletStream, early()...)
+			f.apply(tenantA, deviceA, outletStream, billMuts(billID(41), number(1), 1200, true)...)
+		},
+		"bill, early, late": func(f *fixture) {
+			f.apply(tenantA, deviceA, outletStream, billMuts(billID(41), number(1), 1200, true)...)
+			f.apply(tenantA, deviceA, outletStream, early()...)
+			f.apply(tenantA, deviceB, outletStream, late()...)
+		},
+		"bill, late, early": func(f *fixture) {
+			f.apply(tenantA, deviceA, outletStream, billMuts(billID(41), number(1), 1200, true)...)
+			f.apply(tenantA, deviceB, outletStream, late()...)
+			f.apply(tenantA, deviceA, outletStream, early()...)
+		},
+	}
+	for name, run := range orders {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			run(f)
+			credit := func(from, to string) (cgst, taxable int64) {
+				rep, err := f.svc.TaxSummary(f.as(tenantA), outletA, service.Range{From: from, To: to}, "", 10)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, r := range rep.Items {
+					cgst += r.CreditCgst.AmountPaise
+					taxable += r.CreditTaxable.AmountPaise
+				}
+				return
+			}
+			if c, x := credit("2026-11-24", "2026-11-24"); c != 1200 || x != 48000 {
+				t.Fatalf("24 Nov credit cgst %d taxable %d, want 1200 and 48000", c, x)
+			}
+			if c, x := credit("2026-12-01", "2026-12-01"); c != 0 || x != 0 {
+				t.Fatalf("1 Dec credit cgst %d taxable %d, want none", c, x)
+			}
+		})
+	}
+}
+
 // F30: in print mode the bill is numbered at Present with no payment, and a later payment.record op carries the split
 // tender. Each payment is counted once in the tender totals, and a replay of the op changes nothing.
 func TestPrintModeSplitPaymentIsCountedOnce(t *testing.T) {

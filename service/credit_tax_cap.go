@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sort"
 
 	"github.com/hostryhq/svc-billing/internal/gen"
 	"github.com/hostryhq/svc-billing/repository"
@@ -59,55 +60,74 @@ func cappedTaxOf(bill, prior map[taxKey]taxAmounts, note []gen.TaxLine) []gen.Ta
 	return out
 }
 
-// creditTaxLines are the tax lines of a note as the tax summary may count them. With the bill unknown they are the note's
-// own; the bill's arrival takes back any excess (trimCreditTaxOf).
-func (ac *applyCtx) creditTaxLines(ctx context.Context, n gen.CreditNote) ([]gen.TaxLine, error) {
-	orig, err := load[BillRec](ctx, ac.tx, repository.KindBill, n.BillId)
+// reconcileCreditTax allocates the bill's tax across its credit notes in a fixed order (invoice date, series, number, id),
+// whatever order they arrived in, and corrects the tax summary by the difference from what each note has counted so far.
+// A note is first counted in full (CountedTax nil); the bill being known, this takes back the excess from the later notes, and
+// it runs again whenever a note or the bill arrives, so the reduction always lands on the same invoice date (RM1).
+func (ac *applyCtx) reconcileCreditTax(ctx context.Context, billID string) error {
+	bill, err := load[BillRec](ctx, ac.tx, repository.KindBill, billID)
 	if err == repository.ErrNotFound {
-		return n.TaxLines, nil
+		return nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	others, _, err := loadAll[CreditRec](ctx, ac.tx, repository.Query{Kind: repository.KindCreditNote, K1: n.BillId})
-	if err != nil {
-		return nil, err
-	}
-	var prior []gen.TaxLine
-	for _, o := range others {
-		if o.Note.Id != n.Id {
-			prior = append(prior, o.Note.TaxLines...)
-		}
-	}
-	return cappedTaxOf(sumTaxLines(orig.Detail.TaxLines), sumTaxLines(prior), n.TaxLines), nil
-}
-
-// trimCreditTaxOf runs when a bill arrives after notes that were counted uncapped: it takes back from the tax summary
-// what the notes together reduced beyond the bill.
-func (ac *applyCtx) trimCreditTaxOf(ctx context.Context, bill BillRec) error {
-	notes, docs, err := loadAll[CreditRec](ctx, ac.tx, repository.Query{Kind: repository.KindCreditNote, K1: bill.Detail.Id})
 	if err != nil {
 		return err
 	}
+	notes, docs, err := loadAll[CreditRec](ctx, ac.tx, repository.Query{Kind: repository.KindCreditNote, K1: billID})
+	if err != nil {
+		return err
+	}
+	idx := make([]int, len(notes))
+	for i := range idx {
+		idx[i] = i
+	}
+	sort.SliceStable(idx, func(a, b int) bool {
+		x, y := notes[idx[a]], notes[idx[b]]
+		if xd, yd := x.Note.InvoiceDate.String(), y.Note.InvoiceDate.String(); xd != yd {
+			return xd < yd
+		}
+		if x.Calc.SeriesCode != y.Calc.SeriesCode {
+			return x.Calc.SeriesCode < y.Calc.SeriesCode
+		}
+		if x.Note.Number != y.Note.Number {
+			return x.Note.Number < y.Note.Number
+		}
+		return x.Note.Id < y.Note.Id
+	})
 	own := ac.outlet
 	defer func() { ac.outlet = own }()
 	billTax, prior := sumTaxLines(bill.Detail.TaxLines), map[taxKey]taxAmounts{}
-	for i, r := range notes {
-		capped := cappedTaxOf(billTax, prior, r.Note.TaxLines)
+	for _, i := range idx {
+		r := notes[i]
+		want := cappedTaxOf(billTax, prior, r.Note.TaxLines)
+		have := r.Calc.CountedTax
+		if have == nil {
+			have = r.Note.TaxLines
+		}
 		ac.outlet = docs[i].Outlet
+		changed := false
 		for j, t := range r.Note.TaxLines {
 			d := t
-			d.Taxable = money(capped[j].Taxable.AmountPaise - t.Taxable.AmountPaise)
-			d.Cgst = money(capped[j].Cgst.AmountPaise - t.Cgst.AmountPaise)
-			d.Sgst = money(capped[j].Sgst.AmountPaise - t.Sgst.AmountPaise)
+			d.Taxable = money(want[j].Taxable.AmountPaise - have[j].Taxable.AmountPaise)
+			d.Cgst = money(want[j].Cgst.AmountPaise - have[j].Cgst.AmountPaise)
+			d.Sgst = money(want[j].Sgst.AmountPaise - have[j].Sgst.AmountPaise)
 			if d.Taxable.AmountPaise == 0 && d.Cgst.AmountPaise == 0 && d.Sgst.AmountPaise == 0 {
 				continue
 			}
+			changed = true
 			if err := ac.aggTax(ctx, r.Note.InvoiceDate.String(), d, false, 0, nil); err != nil {
+				return err
+			}
+		}
+		if changed || r.Calc.CountedTax == nil {
+			r.Calc.CountedTax = want
+			if r.Calc.CountedTax == nil {
+				r.Calc.CountedTax = []gen.TaxLine{}
+			}
+			docs[i].Body = marshalDoc(r)
+			if err := ac.tx.SaveDoc(ctx, docs[i]); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
 }
-

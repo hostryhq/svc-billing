@@ -143,7 +143,7 @@ func (ac *applyCtx) bills(ctx context.Context) error {
 		if err := ac.reverifyCreditsOf(ctx, rec); err != nil {
 			return err
 		}
-		if err := ac.trimCreditTaxOf(ctx, rec); err != nil { // notes that came before the bill may credit more than it
+		if err := ac.reconcileCreditTax(ctx, rec.Detail.Id); err != nil { // notes that came before the bill may credit more than it
 			return err
 		}
 		if err := ac.checkPaymentsExceed(ctx, rec.Detail); err != nil { // payments that came before the bill
@@ -606,14 +606,13 @@ func (ac *applyCtx) afterCredit(ctx context.Context, rec CreditRec, day gen.Busi
 	if err := ac.aggDay(ctx, date, contrib); err != nil {
 		return err
 	}
-	taxLines, err := ac.creditTaxLines(ctx, n)
-	if err != nil {
-		return err
-	}
-	for _, t := range taxLines {
+	for _, t := range n.TaxLines {
 		if err := ac.aggTax(ctx, inv, t, false, 0, n.TaxLines); err != nil {
 			return err
 		}
+	}
+	if err := ac.reconcileCreditTax(ctx, n.BillId); err != nil { // the bill's tax is credited once, in a fixed order (F28, RM1)
+		return err
 	}
 	if err := ac.discountRow(ctx, "credit_note", n.Id, n.Number, deref(n.ReasonCodeId), n.Total.AmountPaise, date); err != nil {
 		return err
